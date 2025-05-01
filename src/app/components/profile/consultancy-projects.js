@@ -56,11 +56,62 @@ export const AddForm = ({ handleClose, modal }) => {
         setContent({ ...content, [e.target.name]: e.target.value })
     }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-        setSubmitting(true)
+    // const handleSubmit = async (e) => {
+    //     e.preventDefault()
+    //     setSubmitting(true)
 
+    //     try {
+    //         const result = await fetch('/api/create', {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify({
+    //                 type: 'consultancy_projects',
+    //                 ...content,
+    //                 start_date: content.start_date 
+    //                     ? new Date(content.start_date).toISOString().split('T')[0]
+    //                     : null,
+    //                 end_date: content.end_date==="Continue"?"continue"
+    //                     : new Date(content.end_date).toISOString().split('T')[0],
+    //                 id: Date.now().toString(),
+    //                 email: session?.user?.email
+    //             }),
+    //         })
+
+    //         if (!result.ok) throw new Error('Failed to create')
+            
+    //         handleClose()
+    //         refreshData()
+    //         setContent(initialState)
+    //         window.location.reload()
+    //     } catch (error) {
+    //         console.error('Error:', error)
+    //     } finally {
+    //         setSubmitting(false)
+    //     }
+    // }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        if (!content.start_date) {
+            alert('Start date is required');
+            setSubmitting(false);
+            return;
+        }
+
+        if (!content.end_date && content.end_date !== "Continue") {
+            alert('End date or "Continue" must be selected');
+            setSubmitting(false);
+            return;
+        }
         try {
+            const adjustDate = (date) => {
+                if (!date) return null;
+                const newDate = new Date(date);
+                newDate.setDate(newDate.getDate() + 1); // Increase by 1 day
+                return newDate.toISOString().split('T')[0];
+            };
+    
             const result = await fetch('/api/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -68,27 +119,29 @@ export const AddForm = ({ handleClose, modal }) => {
                     type: 'consultancy_projects',
                     ...content,
                     start_date: content.start_date 
-                        ? new Date(content.start_date).toISOString().split('T')[0]
+                        ? adjustDate(content.start_date)
                         : null,
-                    end_date: content.end_date==="Continue"?"continue"
-                        : new Date(content.end_date).toISOString().split('T')[0],
+                    end_date: content.end_date === "Continue" 
+                        ? "continue" 
+                        : adjustDate(content.end_date),
                     id: Date.now().toString(),
                     email: session?.user?.email
                 }),
-            })
-
-            if (!result.ok) throw new Error('Failed to create')
-            
-            handleClose()
-            refreshData()
-            setContent(initialState)
-            window.location.reload()
+            });
+    
+            if (!result.ok) throw new Error('Failed to create');
+    
+            handleClose();
+            refreshData();
+            setContent(initialState);
+            window.location.reload();
         } catch (error) {
-            console.error('Error:', error)
+            console.error('Error:', error);
         } finally {
-            setSubmitting(false)
+            setSubmitting(false);
         }
-    }
+    };
+    
 
     return (
         <Dialog open={modal} onClose={handleClose} maxWidth="md" fullWidth>
