@@ -55,33 +55,51 @@ export const AddForm = ({ handleClose, modal }) => {
         setSubmitting(true)
         e.preventDefault()
 
+        if (!content.start_date) {
+            alert('Start date is required');
+            setSubmitting(false);
+            return;
+        }
+
+        if (!content.end_date && content.end_date !== "Continue") {
+            alert('End date or "Continue" must be selected');
+            setSubmitting(false);
+            return;
+        }
+
         try {
+            const incrementDate = (date) => {
+                if (!date) return null;
+                const newDate = new Date(date);
+                newDate.setDate(newDate.getDate() + 1); // ✅ Add 1 day
+                return newDate.toISOString().split('T')[0]; // Format as 'YYYY-MM-DD'
+            };
+        
             const result = await fetch('/api/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  type: 'project_supervision',
-                  ...content,
-                  // Format start_date and end_date to 'YYYY-MM-DD' for DATE or 'YYYY-MM-DD HH:MM:SS' for DATETIME
-                  start_date: content.start_date
-                    ? new Date(content.start_date).toISOString().split('T')[0]  // Format as 'YYYY-MM-DD'
-                    : null,
-                  end_date: content.end_date,
-                  id: Date.now().toString(),
-                  email: session?.user?.email,
+                    type: 'project_supervision',
+                    ...content,
+                    start_date: incrementDate(content.start_date),
+                    end_date: content.end_date === "Continue" 
+                        ? "Continue" 
+                        : incrementDate(content.end_date),
+                    id: Date.now().toString(),
+                    email: session?.user?.email,
                 }),
-              });
-              
-
-            if (!result.ok) throw new Error('Failed to create')
-            
-            handleClose()
-            refreshData()
-            setContent(initialState)
-            window.location.reload()
+            });
+        
+            if (!result.ok) throw new Error('Failed to create');
+        
+            handleClose();
+            refreshData();
+            setContent(initialState);
+            window.location.reload();
         } catch (error) {
-            console.error('Error:', error)
-        } finally {
+            console.error('Error:', error);
+        }
+         finally {
             setSubmitting(false)
         }
     }

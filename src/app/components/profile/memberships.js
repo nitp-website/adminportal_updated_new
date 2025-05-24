@@ -48,6 +48,17 @@ export const AddForm = ({ handleClose, modal }) => {
     const handleSubmit = async (e) => {
         setSubmitting(true)
         e.preventDefault()
+        if (!content.start || isNaN(new Date(content.start).getTime())) {
+            alert('Start date is required');
+            setSubmitting(false);
+            return;
+        }
+
+        if (!content.end && content.end !== "Continue") {
+            alert('End date or "Continue" must be selected');
+            setSubmitting(false);
+            return;
+        }     
 
         try {
             const result = await fetch('/api/create', {

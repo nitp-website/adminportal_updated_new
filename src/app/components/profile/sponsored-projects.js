@@ -57,39 +57,53 @@ export const AddForm = ({ handleClose, modal }) => {
     }
 
     const handleSubmit = async (e) => {
-        setSubmitting(true)
-        e.preventDefault()
+        setSubmitting(true);
+        e.preventDefault();
+        if (!content.start_date) {
+            alert('Start date is required');
+            setSubmitting(false);
+            return;
+        }
 
+        if (!content.end_date && content.end_date !== "Continue") {
+            alert('End date or "Continue" must be selected');
+            setSubmitting(false);
+            return;
+        }
         try {
+            const adjustDate = (date) => {
+                if (!date) return null;
+                const newDate = new Date(date);
+                newDate.setDate(newDate.getDate() + 1); // Increment by 1 day
+                return newDate.toISOString().split('T')[0];
+            };
+    
             const result = await fetch('/api/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: 'sponsored_projects',
                     ...content,
-                    // Example: Handle any date fields if they exist, assuming a `start_date` and `end_date`
-                    start_date: content.start_date
-                        ? new Date(content.start_date).toISOString().split('T')[0]  // Format as 'YYYY-MM-DD'
-                        : null,
-                    end_date: isContinuing ? null : (content.end_date ? new Date(content.end_date).toISOString().split('T')[0] : null),
+                    start_date: adjustDate(content.start_date),
+                    end_date: isContinuing ? null : adjustDate(content.end_date),
                     id: Date.now().toString(),
                     email: session?.user?.email
                 }),
             });
-
-
-            if (!result.ok) throw new Error('Failed to create')
-
-            handleClose()
-            refreshData()
-            setContent(initialState)
+    
+            if (!result.ok) throw new Error('Failed to create');
+    
+            handleClose();
+            refreshData();
+            setContent(initialState);
         } catch (error) {
-            console.error('Error:', error)
+            console.error('Error:', error);
         } finally {
             window.location.reload();
-            setSubmitting(false)
+            setSubmitting(false);
         }
-    }
+    };
+    
         const [isContinuing, setIsContinuing] = useState(false);
             const handleContinueToggle = () => {
                 setIsContinuing((prev) => !prev);
