@@ -453,9 +453,13 @@ export const EditForm = ({ handleClose, modal, values }) => {
                         value={content.current_status}
                         onChange={handleChange}
                     >
-                        <MenuItem value="Ongoing">Ongoing</MenuItem>
-                        <MenuItem value="Awarded">Awarded</MenuItem>
+                         <MenuItem value="Admission">Admission</MenuItem>
+                        <MenuItem value="Comprehension">Comprehension</MenuItem>
                         <MenuItem value="Registered">Registered</MenuItem>
+                        <MenuItem value="Presubmission">Presubmission</MenuItem>
+                        <MenuItem value="Thesis_Submitted">Thesis Submitted</MenuItem>
+                        <MenuItem value="Awarded">Awarded</MenuItem>
+                        <MenuItem value="Convocation">Convocation</MenuItem>
                         {/* <MenuItem value="Discontinued">Discontinued</MenuItem> */}
                     </TextField>
                     {content.current_status === 'Awarded' && (
