@@ -19,7 +19,6 @@ export async function GET(request) {
     }
 
     if(cached){
-      console.log("TESTING:/api/notice/route.js: CACHE-HIT: ", cacheKey)
       return NextResponse.json(JSON.parse(cached));
     }
     let results
@@ -102,7 +101,6 @@ export async function GET(request) {
 
     try{
       await redis.set(cacheKey,JSON.stringify(notices),"EX",50)
-      console.log("Redis: cacheKey set: ", notices)
     }catch(err){
       console.error("Redis SET failed: ",err)
     }
@@ -236,13 +234,10 @@ export async function POST(request) {
       }
     })
     try{
-      await redis.del(
-        "notices:all",
-        "notices:academics",
-        "notices:tender",
-        "notices:active"
-      )
-      console.log("Redis: cache deleted")
+      const keys = await redis.keys("notices:*")
+      if (keys.length > 0) {
+        await redis.del(...keys)
+      }
     }catch(err){
       console.error("Redis DEL failed: ",err)
     }
