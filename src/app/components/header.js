@@ -143,6 +143,10 @@ const menuItems = {
   ],
   [ROLES.STAFF]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> }
+  ],
+  [ROLES.TENDER_NOTICE_ADMIN]: [
+    { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
+    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> }
   ]
 }
 

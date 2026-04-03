@@ -29,7 +29,8 @@ export async function POST(request) {
       const canCreateNotice = 
         session.user.role === 'SUPER_ADMIN' ||
         (session.user.role === 'DEPT_ADMIN' && params.data.department === session.user.department) ||
-        session.user.role === 'ACADEMIC_ADMIN'
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        (session.user.role === 'TENDER_NOTICE_ADMIN' && params.data.notice_type === 'tender')
       
       console.log('Can create notice:', canCreateNotice)
       

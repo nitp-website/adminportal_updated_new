@@ -93,7 +93,8 @@ export async function PUT(request) {
         (session.user.role === 'ACADEMIC_ADMIN' && noticeData.notice_type === 'academics') ||
         (session.user.role === 'DEPT_ADMIN' && 
          noticeData.notice_type === 'department' && 
-         noticeData.department === session.user.department)
+         noticeData.department === session.user.department) ||
+        (session.user.role === 'TENDER_NOTICE_ADMIN' && noticeData.notice_type === 'tender')
       
       console.log('Can update notice:', canUpdateNotice)
       
