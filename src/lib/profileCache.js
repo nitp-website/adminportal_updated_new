@@ -2,8 +2,9 @@ import { getRedisClient } from '@/lib/redis';
 import { connectRedis } from '@/lib/redis';
 
 const redis = await connectRedis();
-
-const PROFILE_CACHE_TTL = 60 * 60; // 1 hour cache
+// Cache TTL: 6 hours
+// Reason: profile data changes infrequently but should not be stale for too long
+const PROFILE_CACHE_TTL = 6 * 60 * 60; // 6 hours cache
 const PROFILE_PREFIX = 'profile:';
 
 /**

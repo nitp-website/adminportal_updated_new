@@ -142,7 +142,7 @@ export async function GET(request) {
         // Individual faculty profile query - OPTIMIZED WITH CONNECTION POOLING
         console.log(`[Faculty API] Fetching data for: ${type}`)
         const startTime = Date.now()
-        
+        // FIRST CHECK CACHE
         let profileData = await getCachedUserProfile(type);
          if (profileData) {
           // Cache hit! Return immediately

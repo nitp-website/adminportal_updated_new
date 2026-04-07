@@ -17,7 +17,7 @@ export function getRedisClient() {
       enableOfflineQueue: true,
       lazyConnect: true,
     });
-
+    // Event listeners for logging connection status
     redis.on('error', (err) => {
       console.error('Redis Client Error', err);
     });
@@ -37,18 +37,18 @@ export function getRedisClient() {
 
   return redis;
 }
-
+// Connect immediately to warm up the connection pool
 export async function connectRedis() {
   const client = getRedisClient();
-
+  // If already connected, return immediately
   if (client.status === 'ready') return client;
-
+  // If connecting, wait for ready event
   if (client.status === 'connecting') {
     return new Promise((resolve) => {
       client.once('ready', () => resolve(client));
     });
   }
-
+  // If disconnected, attempt to connect
   if (client.status === 'end') {
     await client.connect();
   }
