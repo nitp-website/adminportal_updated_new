@@ -97,7 +97,8 @@ export async function GET(request) {
              WHERE notice_type = 'department' 
              AND department = ? 
              ORDER BY timestamp DESC`,
-            [depList.get(type)],
+            [type.trim().toUpperCase()],
+       
           );
         } else {
           return NextResponse.json(

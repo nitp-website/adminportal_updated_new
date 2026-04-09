@@ -124,7 +124,7 @@ export async function PUT(request) {
             attachments = ?,
             notice_link = ?,
             isVisible = ?,
-            updatedBy = ?
+            updatedBy = ?,
             notice_type = ?,
             notice_sub_type = ?,
             department = ?
