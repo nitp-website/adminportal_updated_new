@@ -71,7 +71,7 @@ export async function GET(request) {
         break;
 
       default:
-        if ([...administrationList.keys()].some(key => key === type?.trim().toLowerCase())) {
+        if (administrationList.has(type?.trim()?.toLowerCase())) {
   
           if (noticeSubType) {
             results = await query(
@@ -79,26 +79,25 @@ export async function GET(request) {
                WHERE notice_type = ? 
                AND notice_sub_type = ?
                ORDER BY timestamp DESC`,
-              [type, noticeSubType],
+              [administrationList.get(type?.trim()?.toLowerCase()), noticeSubType?.trim()?.toUpperCase()],
             );
           } else {
             results = await query(
               `SELECT * FROM notices 
                WHERE notice_type = ? 
                ORDER BY timestamp DESC`,
-              [type],
+              [administrationList.get(type?.trim()?.toLowerCase())],
             );
           }
         }
         // Check if it's a department notice
-        else if ([...depList.keys()].some(key => key === type.trim().toLowerCase())) {
+        else if (depList.has(type?.trim()?.toLowerCase())) {
           results = await query(
             `SELECT * FROM notices 
              WHERE notice_type = 'department' 
              AND department = ? 
              ORDER BY timestamp DESC`,
-            [type.trim().toUpperCase()],
-       
+            [depList.get(type?.trim()?.toLowerCase())],
           );
         } else {
           return NextResponse.json(

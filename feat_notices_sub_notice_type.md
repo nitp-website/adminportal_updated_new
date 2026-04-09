@@ -60,6 +60,8 @@ GET http://localhost:3000/api/notice?type=JOb&notice_sub_type=rEGULARTEACHING
 - Notice that both `type` and `notice_sub_type` accept any casing but are normalized to UPPERCASE in responses.
 - If the `type` is invalid, you get:
 
+#### Example: Error Response for Invalid Type (`400 Bad Request`)
+
 ```json
 {
   "message": "Invalid type parameter"
@@ -157,7 +159,6 @@ Allows updating notices including the `notice_sub_type` field. If the updated no
     "closeDate": 1715212800000,
     "notice_type": "job",
     "notice_sub_type": "regularteaching",
-    "category": "FACULTY",
     "attachments": [
       {
         "name": "job_description.pdf",
@@ -214,10 +215,14 @@ Returns:
 
 #### Authorization Notes
 
+**Authorization for `/api/update` only:**
+
 - **SUPER_ADMIN:** Can update any notice.
-- **ACADEMIC_ADMIN:** Can only update notices with `notice_type = 'academics'`.
-- **DEPT_ADMIN:** Can only update notices with `notice_type = 'department'` and matching their own department.
-- All updates set `updatedAt` to the current timestamp automatically.
+- **ACADEMIC_ADMIN:** Can update notices only if `notice_type = 'academics'`.
+- **DEPT_ADMIN:** Can update notices only if `notice_type = 'department'` and the `department` matches their own.
+- All updates automatically set `updatedAt` to the current timestamp.
+
+*Note: These authorization rules apply solely to the `/api/update` endpoint. Other endpoints such as `/api/create` (for creation).*
 
 ---
 
