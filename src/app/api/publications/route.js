@@ -72,6 +72,117 @@
 //   }
 // }
 
+// import { NextResponse } from 'next/server'
+// import { query } from '@/lib/db'
+// import { depList } from '@/lib/const'
+
+// export async function GET(request) {
+//   try {
+//     const { searchParams } = new URL(request.url)
+
+//     const type = searchParams.get('type')
+//     const page = Math.max(1, parseInt(searchParams.get('page')) || 1)
+//     const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit')) || 10))
+//     const offset = (page - 1) * limit
+
+//     let allData = []
+
+//     // 🔥 CASE 1: ALL PUBLICATIONS
+//     if (type === 'all') {
+//       const [conference, textbooks, journals, chapters] = await Promise.all([
+//         query(`SELECT id, email, title, conference_year AS year FROM conference_papers`),
+//         query(`SELECT id, email, title, year FROM textbooks`),
+//         query(`SELECT id, email, title, publication_date AS year FROM journal_papers`),
+//         query(`SELECT id, email, chapter_title AS title, year FROM book_chapters`)
+//       ])
+
+//       allData = [
+//         ...conference.map(i => ({ ...i, type: 'conference' })),
+//         ...textbooks.map(i => ({ ...i, type: 'textbook' })),
+//         ...journals.map(i => ({ ...i, type: 'journal' })),
+//         ...chapters.map(i => ({ ...i, type: 'book_chapter' }))
+//       ]
+
+//       // optional sorting (latest first)
+//       allData.sort((a, b) => (b.year || 0) - (a.year || 0))
+
+//       const paginated = allData.slice(offset, offset + limit)
+
+//       return NextResponse.json({
+//         page,
+//         limit,
+//         total: allData.length,
+//         data: paginated
+//       })
+//     }
+
+//     // 🔥 CASE 2: DEPARTMENT FILTER
+//     if (depList.has(type)) {
+//       const dept = depList.get(type)
+
+//       const [conference, textbooks, journals, chapters] = await Promise.all([
+//         query(`
+//           SELECT cp.id, cp.email, cp.title, cp.conference_year AS year
+//           FROM conference_papers cp
+//           JOIN user u ON u.email = cp.email
+//           WHERE u.department = ?
+//         `, [dept]),
+
+//         query(`
+//           SELECT t.id, t.email, t.title, t.year
+//           FROM textbooks t
+//           JOIN user u ON u.email = t.email
+//           WHERE u.department = ?
+//         `, [dept]),
+
+//         query(`
+//           SELECT jp.id, jp.email, jp.title, jp.publication_date AS year
+//           FROM journal_papers jp
+//           JOIN user u ON u.email = jp.email
+//           WHERE u.department = ?
+//         `, [dept]),
+
+//         query(`
+//           SELECT bc.id, bc.email, bc.chapter_title AS title, bc.year
+//           FROM book_chapters bc
+//           JOIN user u ON u.email = bc.email
+//           WHERE u.department = ?
+//         `, [dept])
+//       ])
+
+//       allData = [
+//         ...conference.map(i => ({ ...i, type: 'conference' })),
+//         ...textbooks.map(i => ({ ...i, type: 'textbook' })),
+//         ...journals.map(i => ({ ...i, type: 'journal' })),
+//         ...chapters.map(i => ({ ...i, type: 'book_chapter' }))
+//       ]
+
+//       allData.sort((a, b) => (b.year || 0) - (a.year || 0))
+
+//       const paginated = allData.slice(offset, offset + limit)
+
+//       return NextResponse.json({
+//         page,
+//         limit,
+//         total: allData.length,
+//         data: paginated
+//       })
+//     }
+
+//     return NextResponse.json(
+//       { message: 'Invalid type parameter' },
+//       { status: 400 }
+//     )
+
+//   } catch (error) {
+//     console.error('API Error:', error)
+//     return NextResponse.json(
+//       { message: error.message },
+//       { status: 500 }
+//     )
+//   }
+// }
+
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { depList } from '@/lib/const'
@@ -85,34 +196,38 @@ export async function GET(request) {
     const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit')) || 10))
     const offset = (page - 1) * limit
 
-    let allData = []
-
     // 🔥 CASE 1: ALL PUBLICATIONS
     if (type === 'all') {
-      const [conference, textbooks, journals, chapters] = await Promise.all([
-        query(`SELECT id, email, title, conference_year AS year FROM conference_papers`),
-        query(`SELECT id, email, title, year FROM textbooks`),
-        query(`SELECT id, email, title, publication_date AS year FROM journal_papers`),
-        query(`SELECT id, email, chapter_title AS title, year FROM book_chapters`)
-      ])
+      const countRes = await query(`
+        SELECT 
+          (SELECT COUNT(*) FROM conference_papers) +
+          (SELECT COUNT(*) FROM textbooks) +
+          (SELECT COUNT(*) FROM journal_papers) +
+          (SELECT COUNT(*) FROM book_chapters) AS count
+      `)
 
-      allData = [
-        ...conference.map(i => ({ ...i, type: 'conference' })),
-        ...textbooks.map(i => ({ ...i, type: 'textbook' })),
-        ...journals.map(i => ({ ...i, type: 'journal' })),
-        ...chapters.map(i => ({ ...i, type: 'book_chapter' }))
-      ]
+      const total = countRes[0].count
 
-      // optional sorting (latest first)
-      allData.sort((a, b) => (b.year || 0) - (a.year || 0))
-
-      const paginated = allData.slice(offset, offset + limit)
+      const results = await query(`
+        SELECT * FROM (
+          SELECT id, email, title, conference_year AS year, 'conference' AS type FROM conference_papers
+          UNION ALL
+          SELECT id, email, title, year, 'textbook' FROM textbooks
+          UNION ALL
+          SELECT id, email, title, publication_date AS year, 'journal' FROM journal_papers
+          UNION ALL
+          SELECT id, email, chapter_title AS title, year, 'book_chapter' FROM book_chapters
+        ) AS combined
+        ORDER BY year DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `)
 
       return NextResponse.json({
         page,
         limit,
-        total: allData.length,
-        data: paginated
+        total,
+        totalPages: Math.ceil(total / limit),
+        data: results
       })
     }
 
@@ -120,52 +235,60 @@ export async function GET(request) {
     if (depList.has(type)) {
       const dept = depList.get(type)
 
-      const [conference, textbooks, journals, chapters] = await Promise.all([
-        query(`
-          SELECT cp.id, cp.email, cp.title, cp.conference_year AS year
+      const countRes = await query(
+        `
+        SELECT 
+          (SELECT COUNT(*) FROM conference_papers cp JOIN user u ON u.email = cp.email WHERE u.department = ?) +
+          (SELECT COUNT(*) FROM textbooks t JOIN user u ON u.email = t.email WHERE u.department = ?) +
+          (SELECT COUNT(*) FROM journal_papers jp JOIN user u ON u.email = jp.email WHERE u.department = ?) +
+          (SELECT COUNT(*) FROM book_chapters bc JOIN user u ON u.email = bc.email WHERE u.department = ?) AS count
+        `,
+        [dept, dept, dept, dept]
+      )
+
+      const total = countRes[0].count
+
+      const results = await query(
+        `
+        SELECT * FROM (
+          SELECT cp.id, cp.email, cp.title, cp.conference_year AS year, 'conference' AS type
           FROM conference_papers cp
           JOIN user u ON u.email = cp.email
           WHERE u.department = ?
-        `, [dept]),
 
-        query(`
-          SELECT t.id, t.email, t.title, t.year
+          UNION ALL
+
+          SELECT t.id, t.email, t.title, t.year, 'textbook'
           FROM textbooks t
           JOIN user u ON u.email = t.email
           WHERE u.department = ?
-        `, [dept]),
 
-        query(`
-          SELECT jp.id, jp.email, jp.title, jp.publication_date AS year
+          UNION ALL
+
+          SELECT jp.id, jp.email, jp.title, jp.publication_date AS year, 'journal'
           FROM journal_papers jp
           JOIN user u ON u.email = jp.email
           WHERE u.department = ?
-        `, [dept]),
 
-        query(`
-          SELECT bc.id, bc.email, bc.chapter_title AS title, bc.year
+          UNION ALL
+
+          SELECT bc.id, bc.email, bc.chapter_title AS title, bc.year, 'book_chapter'
           FROM book_chapters bc
           JOIN user u ON u.email = bc.email
           WHERE u.department = ?
-        `, [dept])
-      ])
-
-      allData = [
-        ...conference.map(i => ({ ...i, type: 'conference' })),
-        ...textbooks.map(i => ({ ...i, type: 'textbook' })),
-        ...journals.map(i => ({ ...i, type: 'journal' })),
-        ...chapters.map(i => ({ ...i, type: 'book_chapter' }))
-      ]
-
-      allData.sort((a, b) => (b.year || 0) - (a.year || 0))
-
-      const paginated = allData.slice(offset, offset + limit)
+        ) AS combined
+        ORDER BY year DESC
+        LIMIT ${limit} OFFSET ${offset}
+        `,
+        [dept, dept, dept, dept]
+      )
 
       return NextResponse.json({
         page,
         limit,
-        total: allData.length,
-        data: paginated
+        total,
+        totalPages: Math.ceil(total / limit),
+        data: results
       })
     }
 

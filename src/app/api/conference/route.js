@@ -9,7 +9,7 @@ export async function GET(request) {
     const type = searchParams.get('type')
 
     const page = Math.max(1, parseInt(searchParams.get('page')) || 1)
-    const limit = Math.min(50, parseInt(searchParams.get('limit')) || 10)
+    const limit = Math.min(50, parseInt(searchParams.get('limit')) || 20)
     const offset = (page - 1) * limit
 
     let results = []

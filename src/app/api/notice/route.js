@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { administrationList, depList } from '@/lib/const'
-import { off } from 'node:cluster'
 
 export async function GET(request) {
   try {
@@ -9,175 +8,67 @@ export async function GET(request) {
     const type = searchParams.get('type')
     const now = new Date().getTime()
 
-    const page = Math.max(1, parseInt(searchParams.get('page')) || 1)
-    const limit = Math.min(50, parseInt(searchParams.get('limit')) || 10)
-    const offset = (page - 1) * limit
-
-    let results = []
-    let total = 0
-
+    let results
     switch (type) {
-      case 'all':{
-
-        const countRes = await query(
-          `SELECT COUNT(*) as count FROM notices`
-        )
-        total = countRes[0].count
-
+      case 'all':
         results = await query(
           `SELECT * FROM notices 
-           ORDER BY timestamp DESC
-           LIMIT ${limit} OFFSET ${offset}`
+           ORDER BY timestamp DESC`
         )
-        
-        return NextResponse.json({
-          page,
-          limit,
-          total,
-          totalPages : Math.ceil(total/limit),
-          data : results
-        })
-      }
-      case "tender":{
-        const countRes = await query(
-          `SELECT COUNT(*) as count FROM notices WHERE notice_type="tender"`
-        )
-        total = countRes[0].count
+        break
 
+      case "tender":
         results=await query(
           `SELECT * FROM notices 
           where notice_type="tender"
-           ORDER BY timestamp DESC
-           LIMIT ${limit} OFFSET ${offset}`
+           ORDER BY timestamp DESC`
         )
-        return NextResponse.json({
-          page,
-          limit,
-          offset,
-          total,
-          totalPages: Math.ceil(total / limit),
-          data: results
-        })
-      }
-      case 'whole':{
-        const countRes = await query(
-          `SELECT COUNT(*) as count FROM notices`
-        )
-        total = countRes[0].count
+        break
 
+      case 'whole':
         results = await query(
           `SELECT * FROM notices 
-           ORDER BY openDate DESC
-           LIMIT ${limit} OFFSET ${offset}`
+           ORDER BY openDate DESC`
         )
-        return NextResponse.json({
-          limit,
-          offset,
-          total,
-          totalPages: Math.ceil(total / limit),
-          data: results
-        })
-      }
-      case 'active':{
-        const now = Date.now()
+        break
 
-        const countRes = await query(
-          `SELECT COUNT(*) as count FROM notices
-           WHERE notice_type='general'
-           AND openDate < ? AND closeDate > ?`,
-          [now, now]
-        )
-        total = countRes[0].count
-
+      case 'active':
         results = await query(
           `SELECT * FROM notices 
            WHERE notice_type = 'general' 
            AND openDate < ? AND closeDate > ? 
-           ORDER BY openDate DESC
-           LIMIT ${limit} OFFSET ${offset}`,
-           [now, now]
+           ORDER BY openDate DESC`,
+          [now, now]
         )
-        return NextResponse.json({
-          page,
-          limit,
-          offset,
-          total,
-          totalPages: Math.ceil(total / limit),
-          data: results
-        })
-      }
-      case 'academics':{
-        const countRes = await query(
-          `SELECT COUNT(*) as count FROM notices WHERE notice_type='academics'`
-        )
-        total = countRes[0].count
+        break
 
+      case 'academics':
         results = await query(
           `SELECT * FROM notices 
            WHERE notice_type = 'academics'
-           ORDER BY timestamp DESC
-           LIMIT ${limit} OFFSET ${offset}`
+           ORDER BY timestamp DESC`
         )
-        return NextResponse.json({
-          page,
-          limit,
-          offset,
-          total,
-          totalPages: Math.ceil(total / limit),
-          data: results
-        })
-      }
+        break
+
       default:
         // Check if it's an administration notice type
         if (administrationList.has(type)) {
-
-          const countRes = await query(
-            `SELECT COUNT(*) as count FROM notices WHERE notice_type = ?`,
-            [type]
-          )
-          total = countRes[0].count
-
           results = await query(
             `SELECT * FROM notices 
              WHERE notice_type = ? 
-             ORDER BY timestamp DESC
-             LIMIT ${limit} OFFSET ${offset}`,
+             ORDER BY timestamp DESC`,
             [type]
           )
-          return NextResponse.json({
-            page,
-            limit,
-            offset,
-            total,
-            totalPages: Math.ceil(total / limit),
-            data: results
-          })
         }
         // Check if it's a department notice
         else if (depList.has(type)) {
-          const countRes = await query(
-            `SELECT COUNT(*) as count FROM notices
-             WHERE notice_type='department' AND department = ?`,
-            [depList.get(type)]
-          )
-          total = countRes[0].count
-
           results = await query(
             `SELECT * FROM notices 
              WHERE notice_type = 'department' 
              AND department = ? 
-             ORDER BY timestamp DESC
-             LIMIT ${limit} OFFSET ${offset}`,
+             ORDER BY timestamp DESC`,
             [depList.get(type)]
           )
-          return NextResponse.json({
-            page,
-            limit,
-            offset,
-            total,
-            totalPages: Math.ceil(total / limit),
-            data: results
-          })
         }
         else {
           return NextResponse.json(
@@ -187,7 +78,15 @@ export async function GET(request) {
         }
     }
 
+    // Parse attachments JSON for each result
+    const notices = JSON.parse(JSON.stringify(results))
+    notices.forEach(notice => {
+      if (notice.attachments) {
+        notice.attachments = JSON.parse(notice.attachments)
+      }
+    })
 
+    return NextResponse.json(notices)
 
   } catch (error) {
     console.error('API Error:', error)
@@ -211,22 +110,22 @@ export async function POST(request) {
       to,
       keyword = '',
     } = body
-
-    let results = []
-    let total = 0
-
-    const pageSize = Math.max(1, Math.min(100, (to || 15) - (from || 0)))
-    const offset = Math.max(0, from || 0)
-    const page = Math.floor(offset / pageSize) + 1
     
+    // Ensure from and to are valid integers
+    from = parseInt(from) || 0
+    to = parseInt(to) || 15
+    
+    // Validate that from and to are valid
+    if (from < 0) from = 0
+    if (to <= from) to = from + 15
+    
+    let results
 
-  
     // For ACADEMIC_ADMIN, always filter for academic notices
     if (notice_type === 'academics') {
-      const countRes = await query(
-        `SELECT COUNT(*) as count FROM notices WHERE notice_type='academics'`
-      )
-      total = countRes[0].count
+      const limit = Math.max(1, Math.min(100, to - from))
+      const offset = Math.max(0, from)
+      console.log('DEBUG: Academic pagination params:', { offset, limit })
       
       results = await query(
         `SELECT * FROM notices 
@@ -238,13 +137,9 @@ export async function POST(request) {
     } 
     // For DEPT_ADMIN, filter for department notices of their department
     else if (notice_type === 'department' && department) {
-
-      const countRes = await query(
-        `SELECT COUNT(*) as count FROM notices 
-         WHERE notice_type='department' AND department=?`,
-        [department]
-      )
-      total = countRes[0].count
+      const limit = Math.max(1, Math.min(100, to - from))
+      const offset = Math.max(0, from)
+      console.log('DEBUG: Department pagination params:', { offset, limit, department })
       
       results = await query(
         `SELECT * FROM notices 
@@ -256,12 +151,8 @@ export async function POST(request) {
     } else {
       switch (type) {
         case 'range':
-          const countRes = await query(
-            `SELECT COUNT(*) as count FROM notices 
-             WHERE title LIKE ?`,
-            [`%${keyword}%`]
-          )
-          total = countRes[0].count
+          const rangeLimit = Math.max(1, Math.min(100, to - from))
+          const rangeOffset = Math.max(0, from)
           
           if (!notice_type) {
             results = await query(
@@ -297,8 +188,9 @@ export async function POST(request) {
           break
 
         case 'between':
-          
-          console.log('DEBUG: Pagination params:', { offset, limit })
+          const limit = Math.max(1, Math.min(100, to - from)) // Ensure limit is between 1 and 100
+          const offset = Math.max(0, from) // Ensure offset is non-negative
+          console.log('DEBUG: Pagination params:', { offset, limit, originalFrom: from, originalTo: to })
           
           // Try without prepared statements for LIMIT clause
           results = await query(
@@ -320,13 +212,7 @@ export async function POST(request) {
     const notices = JSON.parse(JSON.stringify(results))
     notices.forEach(notice => {
       if (notice.attachments) {
-        try {
-          notice.attachments = JSON.parse(notice.attachments)
-        } catch (e) {
-          notice.attachments = []
-        }
-      } else {
-        notice.attachments = []
+        notice.attachments = JSON.parse(notice.attachments)
       }
     })
 

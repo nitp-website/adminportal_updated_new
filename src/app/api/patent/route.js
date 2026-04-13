@@ -6,7 +6,7 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const type = searchParams.get('type');
         const page = Math.max(1, parseInt(searchParams.get('page')) || 1);
-        const limit = Math.min(50, parseInt(searchParams.get('limit')) || 10);
+        const limit = Math.min(50, parseInt(searchParams.get('limit')) || 20);
         const offset = (page - 1) * limit;
 
         let results = []
@@ -14,12 +14,12 @@ export async function GET(request) {
         switch (type) {
             case 'all':
                 const allCount = await query(
-                `SELECT COUNT(*) as count FROM ipr WHERE type = "Patent"`
+                `SELECT COUNT(*) as count FROM ipr WHERE type = "patent"`
                 )
                 total = allCount[0].count
                         
                 results = await query(
-                    `SELECT * FROM ipr WHERE type = "Patent" LIMIT ${limit} OFFSET ${offset}`
+                    `SELECT * FROM ipr WHERE type = "patent" ORDER BY id DESC LIMIT ${limit} OFFSET ${offset}`
                 );
                 return NextResponse.json({
                     page,
@@ -32,7 +32,7 @@ export async function GET(request) {
 
             case 'count':
                 const patentCount = await query(
-                    `SELECT COUNT(*) AS patentCount FROM ipr WHERE type = "Patent"`
+                    `SELECT COUNT(*) AS patentCount FROM ipr WHERE type = "patent"`
                 );
                 return NextResponse.json(patentCount[0]);
 
@@ -42,7 +42,7 @@ export async function GET(request) {
                     `SELECT COUNT(*) as count
                     FROM ipr i
                     JOIN user u ON u.email = i.email
-                    WHERE i.type = "Patent"
+                    WHERE i.type = "patent"
                     AND u.department = ?
                     AND u.is_deleted = 0`,
                     [depList.get(type)]
@@ -52,7 +52,7 @@ export async function GET(request) {
                         `SELECT i.*, u.name, u.department
                         FROM ipr i
                         JOIN user u ON u.email = i.email
-                        WHERE i.type = "Patent" 
+                        WHERE i.type = "patent" 
                             AND u.department = ? 
                             AND u.is_deleted = 0
                         ORDER BY i.id DESC

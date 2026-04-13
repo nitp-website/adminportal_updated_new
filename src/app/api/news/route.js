@@ -9,7 +9,7 @@ export async function GET(request) {
     const now = new Date().getTime()
 
     const page = Math.max(1, parseInt(searchParams.get('page')) || 1);
-    const limit = Math.min(50, parseInt(searchParams.get('limit')) || 10);
+    const limit = Math.min(50, parseInt(searchParams.get('limit')) || 20);
     const offset = (page - 1) * limit;
 
     let results = []
@@ -99,7 +99,7 @@ export async function POST(request) {
     let {from, to} = body
 
     from = parseInt(from) || 0
-    to = parseInt(to) || 10
+    to = parseInt(to) || 20
 
     if (from < 0) from = 0
     if (to <= from) to = from + 10
