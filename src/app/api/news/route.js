@@ -2,6 +2,24 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { off } from 'node:cluster'
 
+const safeParse = (value) => {
+  if (!value) return []
+  if (typeof value !== 'string') return Array.isArray(value) ? value : []
+  
+  // If it's a plain string (not JSON), wrap it in array
+  if (!value.startsWith('[') && !value.startsWith('{')) {
+    return [value]
+  }
+  
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : [parsed]
+  } catch (e) {
+    // If parsing fails, treat plain string as single item
+    return [value]
+  }
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -65,12 +83,8 @@ export async function GET(request) {
     // Parse JSON fields for each result
     const newsItems = JSON.parse(JSON.stringify(results))
     newsItems.forEach(item => {
-      if (item.image) {
-        item.image = JSON.parse(item.image)
-      }
-      if (item.attachments) {
-        item.attachments = JSON.parse(item.attachments)
-      }
+      item.image = safeParse(item.image)
+      item.attachments = safeParse(item.attachments)
     })
 
     return NextResponse.json({
@@ -106,6 +120,8 @@ export async function POST(request) {
 
     const limit = Math.max(1, Math.min(50, to - from))
     const offset = Math.max(0, from)
+    const page = Math.floor(offset / limit) + 1
+
     let results = []
     let total = 0
 
@@ -149,25 +165,8 @@ export async function POST(request) {
     // Parse JSON fields for each result
     const newsItems = JSON.parse(JSON.stringify(results))
     newsItems.forEach(item => {
-      if (item.image) {
-        try {
-          item.image = JSON.parse(item.image)
-        } catch (e) {
-          item.image = []
-        }
-      } else {
-        item.image = []
-      }
-      
-      if (item.attachments) {
-        try {
-          item.attachments = JSON.parse(item.attachments)
-        } catch (e) {
-          item.attachments = []
-        }
-      } else {
-        item.attachments = []
-      }
+      item.image = safeParse(item.image)
+      item.attachments = safeParse(item.attachments)
     })
 
     return NextResponse.json({
