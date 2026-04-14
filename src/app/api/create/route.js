@@ -4,6 +4,7 @@ import { query } from '@/lib/db'
 import { ROLES, hasAccess } from '@/lib/roles'
 // import { authOptions } from '../auth/[...nextauth]/route'
 import { authOptions } from '@/lib/authOptions'
+import { notice_sub_types } from '@/lib/const';
 
 export async function POST(request) {
   const session = await getServerSession(authOptions)
@@ -17,8 +18,7 @@ export async function POST(request) {
 
   try {
     const { type, ...params } = await request.json()
-    // console.log(session.user.role,'dkfas;k')
-    // Notice handling based on role
+    
     if (type === 'notice') {
       console.log('DEBUG: Authorization check for notice creation')
       console.log('User role:', session.user.role)
@@ -40,11 +40,31 @@ export async function POST(request) {
         )
       }
 
+      if (params.data.notice_type ) {
+        const noticeTypeKey = params.data.notice_type.toUpperCase();
+        if (notice_sub_types.hasOwnProperty(noticeTypeKey)) {
+          if (
+            !params.data.notice_sub_type ||
+            !notice_sub_types[noticeTypeKey].some(
+            ([_,upKey]) => upKey===params.data.notice_sub_type,
+            )          ) {
+            return NextResponse.json(
+              {
+                message:
+                  "Invalid or missing notice_sub_type for notice_type: " +
+                  params.data.notice_type,
+              },
+              { status: 400 },
+            );
+          }
+        }
+      }
+
       const noticeResult = await query(
         `INSERT INTO notices(
     id, title, timestamp, openDate, closeDate, important, isVisible, attachments, email, 
-    isDept, notice_link, notice_type, updatedBy, updatedAt, department
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    isDept, notice_link, notice_type, updatedBy, updatedAt, department,notice_sub_type
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
   [
     params.data.id,
     params.data.title,
@@ -58,9 +78,9 @@ export async function POST(request) {
     params.data.isDept || 0,
     params.data.notice_link || null,
     params.data.notice_type || null,
-    session.user.email,
-    new Date().getTime(),
+    session.user.email,    new Date().getTime(),
     params.data.department || null,
+    params.data.notice_sub_type?.trim()?.toUpperCase()||null
   ]
       )
       return NextResponse.json(noticeResult)

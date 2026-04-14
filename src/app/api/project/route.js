@@ -25,29 +25,23 @@ export async function GET(request) {
 
         const results = await query(`
           SELECT * FROM (
-            SELECT 
-              id,
-              email,
-              project_title,
-              funding_agency,
-              start_date,
-              end_date,
-              'sponsored' AS project_type,
-              end_date AS sort_date
-            FROM sponsored_projects
+          SELECT 
+            id, email, project_title, funding_agency,
+            financial_outlay, investigators, pi_institute,
+            status, funds_received, role,
+            start_date, end_date,
+            'sponsored' AS project_type, end_date AS sort_date
+          FROM sponsored_projects
 
-            UNION ALL
+          UNION ALL
 
-            SELECT 
-              id,
-              email,
-              project_title,
-              funding_agency,
-              start_date,
-              NULL AS end_date,   -- 🔥 FIX (if not present)
-              'consultancy' AS project_type,
-              start_date AS sort_date
-            FROM consultancy_projects
+          SELECT 
+            id, email, project_title, funding_agency,
+            financial_outlay, investigators, NULL AS pi_institute,
+            status, NULL AS funds_received, role,
+            start_date, NULL AS end_date,
+            'consultancy' AS project_type, start_date AS sort_date
+          FROM consultancy_projects
           ) AS combined
           ORDER BY sort_date DESC
           LIMIT ${limit} OFFSET ${offset}
@@ -92,14 +86,15 @@ export async function GET(request) {
           const results = await query(`
             SELECT * FROM (
               SELECT 
-                sp.id,
-                sp.email,
-                sp.project_title,
-                sp.funding_agency,
-                sp.start_date,
-                sp.end_date,
-                'sponsored' AS project_type,
-                sp.end_date AS sort_date
+                u.name, u.department, u.designation, u.ext_no, u.research_interest,
+                u.academic_responsibility, u.image, u.administration, u.cv,
+                u.linkedin, u.google_scholar, u.personal_webpage, u.scopus,
+                u.vidwan, u.orcid, u.is_retired, u.retirement_date, u.is_deleted,
+                sp.id, sp.email, sp.project_title, sp.funding_agency,
+                sp.financial_outlay, sp.investigators, sp.pi_institute,
+                sp.status, sp.funds_received, sp.role,
+                sp.start_date, sp.end_date,
+                'sponsored' AS project_type, sp.end_date AS sort_date
               FROM sponsored_projects sp
               JOIN user u ON u.email = sp.email
               WHERE u.department = ?
@@ -107,14 +102,15 @@ export async function GET(request) {
               UNION ALL
 
               SELECT 
-                cp.id,
-                cp.email,
-                cp.project_title,
-                cp.funding_agency,
-                cp.start_date,
-                NULL AS end_date,   -- 🔥 FIX
-                'consultancy' AS project_type,
-                cp.start_date AS sort_date
+                u.name, u.department, u.designation, u.ext_no, u.research_interest,
+                u.academic_responsibility, u.image, u.administration, u.cv,
+                u.linkedin, u.google_scholar, u.personal_webpage, u.scopus,
+                u.vidwan, u.orcid, u.is_retired, u.retirement_date, u.is_deleted,
+                cp.id, cp.email, cp.project_title, cp.funding_agency,
+                cp.financial_outlay, cp.investigators, NULL AS pi_institute,
+                cp.status, NULL AS funds_received, cp.role,
+                cp.start_date, NULL AS end_date,
+                'consultancy' AS project_type, cp.start_date AS sort_date
               FROM consultancy_projects cp
               JOIN user u ON u.email = cp.email
               WHERE u.department = ?

@@ -3,13 +3,22 @@ export const administrationList = new Map([
   ['academicintranet', 'Intranet - Academic and Exam Notice'],
   ['genralintranet', 'Intranet - General Notice'],
   ['tender', 'Tender'],
-  ['jrfsrf', 'JRF SRF'],
-  ['facultystaffjob', 'Faculty Staff Job Recruitment'],
+  ['job', 'JOB'],
   ['bogminutes', 'BOG/FC/BWC Minutes'],
   ['senateminutes', 'Senate Minutes'],
   ['annualreport', 'Annual Reports'],
   ['newcampus', 'New Campus']
 ])
+
+export const notice_sub_types = {
+  "JOB": [
+    ["regularteaching", "Regular Teaching"],
+    ["nonregularteaching", "Non-Regular Teaching"],
+    ["regularnonteaching", "Regular Non-Teaching"],
+    ["nonregularnonteaching", "Non-Regular Non-Teaching"],
+    ["jdrfsrf", "JDRF/SRF"]
+  ]
+}
 
 export const depList = new Map([
   ['arch', 'Architecture'],
