@@ -27,7 +27,7 @@ export async function GET(request) {
         total = allCount[0].count
 
         results = await query(
-          `SELECT * FROM innovation ORDER BY openDate DESC LIMIT ${limit} OFFSET ${offset}`
+          `SELECT * FROM innovation ORDER BY COALESCE(openDate, 0) DESC, id DESC LIMIT ${limit} OFFSET ${offset}`
         )
         break
 
@@ -43,7 +43,7 @@ export async function GET(request) {
         results = await query(
           `SELECT * FROM innovation 
            WHERE openDate < ? AND closeDate > ? 
-           ORDER BY openDate DESC
+           ORDER BY COALESCE(openDate, 0) DESC, id DESC
            LIMIT ${limit} OFFSET ${offset}`,
           [now, now]
         )
@@ -113,6 +113,7 @@ export async function POST(request) {
 
     const limit = Math.max(1, Math.min(50, to - from))
     const offset = Math.max(0, from)
+    const page = Math.floor(offset / limit) + 1
 
     let results
     let total = 0
@@ -129,7 +130,7 @@ export async function POST(request) {
         results = await query(
           `SELECT * FROM innovation 
            WHERE closeDate <= ? AND openDate >= ? 
-           ORDER BY openDate DESC LIMIT ${limit} OFFSET ${offset}`,
+           ORDER BY COALESCE(openDate, 0) DESC, id DESC LIMIT ${limit} OFFSET ${offset}`,
           [end_date, start_date]
         )
         break
@@ -142,7 +143,7 @@ export async function POST(request) {
 
         results = await query(
           `SELECT * FROM innovation 
-           ORDER BY openDate DESC 
+            ORDER BY COALESCE(openDate, 0) DESC, id DESC 
            LIMIT ${limit} OFFSET ${offset}`
         )
         break
@@ -160,7 +161,7 @@ export async function POST(request) {
       image: item.image ? safeParse(item.image) : []
     }))
 
-      return NextResponse.json({
+    return NextResponse.json({
       page,
       limit,
       offset,
