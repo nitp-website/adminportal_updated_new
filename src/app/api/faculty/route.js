@@ -101,7 +101,7 @@ export async function GET(request) {
             ${subqueries.join(',\n    ')}
               FROM user u 
               WHERE u.is_deleted = 0
-              ORDER BY u.name ASC
+                ORDER BY u.name ASC, u.email ASC
               LIMIT ${limit} OFFSET ${offset}`
         )
         // Transform the results to include role name
@@ -124,11 +124,13 @@ export async function GET(request) {
         // Fetch faculty from each department
         for (let i = 0; i < departments.length; i++) {
           const data = await query(
-            `SELECT * FROM user WHERE department = ? AND is_deleted = 0 ORDER BY name ASC`,
+            `SELECT * FROM user WHERE department = ? AND is_deleted = 0 ORDER BY name ASC, email ASC`,
             [departments[i]]
           )
           results = [...results, ...data]
         }
+
+        total = results.length
 
         const paginated = results
           .sort((a, b) => a.name.localeCompare(b.name))
@@ -166,7 +168,9 @@ export async function GET(request) {
             u.*, 
             ${subqueries.join(',\n    ')}
               FROM user u
-              where department = ? AND u.is_deleted = 0`,
+              where department = ? AND u.is_deleted = 0
+              ORDER BY u.name ASC, u.email ASC
+              LIMIT ${limit} OFFSET ${offset}`,
             [depList.get(type)]
           )
           return NextResponse.json({

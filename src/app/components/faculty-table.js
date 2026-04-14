@@ -40,6 +40,7 @@ export function FacultyTable() {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [rows, setRows] = useState([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [openAdd, setOpenAdd] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
@@ -50,13 +51,14 @@ export function FacultyTable() {
   const [emailSearch, setEmailSearch] = useState('')
 
   // Fetch faculty data function
-  const fetchFaculty = async () => {
+  const fetchFaculty = async (targetPage = page, targetRowsPerPage = rowsPerPage) => {
     try {
       setLoading(true)
-      const res = await fetch('/api/faculty?type=all')
+      const res = await fetch(`/api/faculty?type=all&page=${targetPage + 1}&limit=${targetRowsPerPage}`)
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
       setRows(Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []))
+      setTotal(Number(data?.total) || 0)
     } catch (error) {
       console.error('Error fetching faculty:', error)
     } finally {
@@ -64,10 +66,10 @@ export function FacultyTable() {
     }
   }
 
-  // Fetch faculty data on component mount
+  // Fetch faculty data when pagination changes
   useEffect(() => {
     fetchFaculty()
-  }, [])
+  }, [page, rowsPerPage])
 
     const handleChangePage = (event, newPage) => {
         setPage(newPage)
@@ -130,12 +132,15 @@ export function FacultyTable() {
     setOpenDelete(true)
   }
 
-  // Filter rows based on search
+  // Local filter on current page rows
   const filteredRows = rows.filter(row => {
     const nameMatch = row.name?.toLowerCase().includes(nameSearch.toLowerCase())
     const emailMatch = row.email?.toLowerCase().includes(emailSearch.toLowerCase())
     return nameMatch && emailMatch
   })
+
+  const hasSearch = Boolean(nameSearch || emailSearch)
+  const displayRows = hasSearch ? filteredRows : rows
 
   useEffect(() => {
     setPage(0)
@@ -204,9 +209,7 @@ export function FacultyTable() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-            {filteredRows
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((row) => (
+            {displayRows.map((row) => (
                 <TableRow hover tabIndex={-1} key={row.email}>
                   <TableCell>{row.name}</TableCell>
                   <TableCell>{row.email}</TableCell>
@@ -238,7 +241,7 @@ export function FacultyTable() {
                             <TablePagination
         rowsPerPageOptions={[10, 25, 50]}
         component="div"
-        count={filteredRows.length}
+                              count={hasSearch ? filteredRows.length : total}
                                 rowsPerPage={rowsPerPage}
                                 page={page}
         onPageChange={handleChangePage}
