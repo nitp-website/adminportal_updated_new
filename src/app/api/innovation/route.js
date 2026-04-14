@@ -24,7 +24,7 @@ export async function GET(request) {
     switch (type) {
       case 'all':
         const allCount = await query(`SELECT COUNT(*) as count FROM innovation`)
-        total = allCount[0].count
+        total = Number(allCount[0].count)
 
         results = await query(
           `SELECT * FROM innovation ORDER BY openDate DESC LIMIT ${limit} OFFSET ${offset}`
@@ -38,7 +38,7 @@ export async function GET(request) {
            WHERE openDate < ? AND closeDate > ?`,
           [now, now]
         )
-        total = activeCount[0].count
+        total = Number(activeCount[0].count)
 
         results = await query(
           `SELECT * FROM innovation 
@@ -65,7 +65,7 @@ export async function GET(request) {
             [type]
           )
 
-          total = results.length
+          total = Number(results.length)
         } else {
           return NextResponse.json(
             { message: 'Invalid type parameter' },
@@ -124,7 +124,7 @@ export async function POST(request) {
            WHERE closeDate <= ? AND openDate >= ?`,
           [end_date, start_date]
         )
-        total = rangeCount[0].count
+        total = Number(rangeCount[0].count)
 
         results = await query(
           `SELECT * FROM innovation 
@@ -138,7 +138,7 @@ export async function POST(request) {
         const betweenCount = await query(
           `SELECT COUNT(*) as count FROM innovation`
         )
-        total = betweenCount[0].count
+        total = Number(betweenCount[0].count)
 
         results = await query(
           `SELECT * FROM innovation 

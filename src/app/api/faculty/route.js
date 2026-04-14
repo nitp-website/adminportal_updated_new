@@ -85,7 +85,7 @@ export async function GET(request) {
         const countRes = await query(
           `SELECT COUNT(*) as count FROM user WHERE is_deleted = 0`
         )
-        total = countRes[0].count
+        total = Number(countRes[0].count)
 
         results = await query(
           `SELECT 
@@ -159,7 +159,7 @@ export async function GET(request) {
             `SELECT COUNT(*) as count FROM user WHERE department = ? AND is_deleted = 0`,
             [depList.get(type)]
           )
-          total = countRes[0].count
+          total = Number(countRes[0].count)
 
           results = await query(
             `SELECT 

@@ -21,7 +21,7 @@ export async function GET(request) {
             (SELECT COUNT(*) FROM consultancy_projects) AS count
         `)
 
-        total = count[0].count
+        total = Number(count[0].count)
 
         const results = await query(`
           SELECT * FROM (
@@ -81,7 +81,7 @@ export async function GET(request) {
                WHERE u.department = ?) AS count
           `, [dept, dept])
 
-          total = count[0].count
+          total = Number(count[0].count)
 
           const results = await query(`
             SELECT * FROM (

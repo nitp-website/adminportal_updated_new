@@ -20,7 +20,7 @@ export async function GET(request) {
         const allCount = await query(
           `SELECT COUNT(*) as count FROM conference_papers`
         )
-        total = allCount[0].count
+        total = Number(allCount[0].count)
 
         const conference_papers = await query(
           `SELECT * FROM conference_papers ORDER BY id DESC LIMIT ${limit} OFFSET ${offset}`
@@ -43,7 +43,7 @@ export async function GET(request) {
              WHERE u.department = ?`,
             [depList.get(type)]
           )
-          total = deptCount[0].count
+          total = Number(deptCount[0].count)
 
           const conference_data = await query(
             `SELECT t.*, u.department 

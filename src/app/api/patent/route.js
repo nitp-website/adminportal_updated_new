@@ -16,7 +16,7 @@ export async function GET(request) {
                 const allCount = await query(
                 `SELECT COUNT(*) as count FROM ipr WHERE type = "patent"`
                 )
-                total = allCount[0].count
+                total = Number(allCount[0].count)
                         
                 results = await query(
                     `SELECT * FROM ipr WHERE type = "patent" ORDER BY id DESC LIMIT ${limit} OFFSET ${offset}`
@@ -47,7 +47,7 @@ export async function GET(request) {
                     AND u.is_deleted = 0`,
                     [depList.get(type)]
                 );
-                total = deptCount[0].count;
+                total = Number(deptCount[0].count);
                     results = await query(
                         `SELECT i.*, u.name, u.department
                         FROM ipr i

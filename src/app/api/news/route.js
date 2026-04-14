@@ -18,7 +18,7 @@ export async function GET(request) {
     switch (type) {
       case 'all':{
         const countRes = await query(`SELECT COUNT(*) as count FROM news`)
-        total = countRes[0].count
+        total = Number(countRes[0].count)
 
         results = await query(
           `SELECT * FROM news ORDER BY openDate DESC LIMIT ${limit} OFFSET ${offset}`,
@@ -31,7 +31,7 @@ export async function GET(request) {
            WHERE openDate < ? AND closeDate > ?`,
           [now, now]
         )
-        total = countRes[0].count
+        total = Number(countRes[0].count)
         results = await query(
           `SELECT * FROM news 
            WHERE openDate < ? AND closeDate > ? 
@@ -48,7 +48,7 @@ export async function GET(request) {
             `SELECT COUNT(*) as count FROM news WHERE id = ?`,
             [type]
           )
-          total = countRes[0].count
+          total = Number(countRes[0].count)
 
           results = await query(
             `SELECT * FROM news WHERE id = ?`,
@@ -112,7 +112,7 @@ export async function POST(request) {
     switch (type) {
       case 'all':{
         const countRes = await query(`SELECT COUNT(*) as count FROM news`)
-        total = countRes[0].count
+        total = Number(countRes[0].count)
         results = await query(
           `SELECT * FROM news 
            ORDER BY openDate DESC
@@ -128,7 +128,7 @@ export async function POST(request) {
            WHERE closeDate <= ? AND openDate >= ?`,
           [end_date, start_date]
         )
-        total = countRes[0].count
+        total = Number(countRes[0].count)
 
         results = await query(
           `SELECT * FROM news 

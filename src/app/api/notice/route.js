@@ -4,6 +4,7 @@ import { administrationList, depList } from '@/lib/const'
 
 export async function GET(request) {
   try {
+<<<<<<< Updated upstream
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type')
     const now = new Date().getTime()
@@ -87,6 +88,101 @@ export async function GET(request) {
     })
 
     return NextResponse.json(notices)
+=======
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get("type")?.trim();
+    const noticeSubType = searchParams.get("notice_sub_type")?.trim().toUpperCase();
+    const page = Math.max(1, parseInt(searchParams.get('page')) || 1);
+    const limit = Math.min(50, parseInt(searchParams.get('limit')) || 20);
+    const offset = (page - 1) * limit;
+    const now = new Date().getTime();
+
+    let results;
+    let total = 0;
+
+    switch (type) {
+      case "all":
+        if (noticeSubType) {
+          const countRes = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_sub_type = ?`, [noticeSubType]);
+          total = Number(countRes[0].count);
+          results = await query(`SELECT * FROM notices WHERE notice_sub_type = ? ORDER BY timestamp DESC  LIMIT ${limit} OFFSET ${offset}`, [noticeSubType]);
+        } else {
+          const countRes = await query(`SELECT COUNT(*) as count FROM notices`);
+          total = Number(countRes[0].count);
+          results = await query(`SELECT * FROM notices ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`);
+        }
+        break;
+
+      case "tender":
+        if (noticeSubType) {
+          const countRes = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type='tender' AND notice_sub_type = ?`, [noticeSubType]);
+          total = Number(countRes[0].count);
+          results = await query(`SELECT * FROM notices WHERE notice_type='tender' AND notice_sub_type = ? ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`, [noticeSubType]);
+        } else {
+          const countRes = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type='tender'`);
+          total = Number(countRes[0].count);
+          results = await query(`SELECT * FROM notices WHERE notice_type='tender' ORDER BY timestamp DESC  LIMIT ${limit} OFFSET ${offset}`);
+        }
+        break;
+
+      case "whole":
+        const wholeCount = await query(`SELECT COUNT(*) as count FROM notices`);
+        total = Number(wholeCount[0].count);
+        results = await query(`SELECT * FROM notices ORDER BY openDate DESC LIMIT ${limit} OFFSET ${offset}`);
+        break;
+
+      case "active":
+        const activeCount = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type = 'general' AND openDate < ? AND closeDate > ?`, [now, now]);
+        total = Number(activeCount[0].count);
+        results = await query(`SELECT * FROM notices WHERE notice_type = 'general' AND openDate < ? AND closeDate > ? ORDER BY openDate DESC LIMIT ${limit} OFFSET ${offset}`, [now, now]);
+        break;
+
+      case "academics":
+        const acadCount = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type = 'academics'`);
+        total = Number(acadCount[0].count);
+        results = await query(`SELECT * FROM notices WHERE notice_type = 'academics' ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`);
+        break;
+
+      case "facultystaffjob":
+        const jobCount = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type = 'facultystaffjob'`);
+        total = Number(jobCount[0].count);
+        results = await query(`SELECT * FROM notices WHERE notice_type = 'facultystaffjob' ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`);
+        break;
+
+      default:
+        if (administrationList.has(type?.trim()?.toLowerCase())) {
+          if (noticeSubType) {
+            const countRes = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type = ? AND notice_sub_type = ?`, [administrationList.get(type?.trim()?.toLowerCase()), noticeSubType]);
+            total = Number(countRes[0].count);
+            results = await query(`SELECT * FROM notices WHERE notice_type = ? AND notice_sub_type = ? ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`, [administrationList.get(type?.trim()?.toLowerCase()), noticeSubType]);
+          } else {
+            const countRes = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type = ?`, [administrationList.get(type?.trim()?.toLowerCase())]);
+            total = Number(countRes[0].count);
+            results = await query(`SELECT * FROM notices WHERE notice_type = ? ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`, [administrationList.get(type?.trim()?.toLowerCase())]);
+          }
+        } else if (depList.has(type?.trim()?.toLowerCase())) {
+          const countRes = await query(`SELECT COUNT(*) as count FROM notices WHERE notice_type = 'department' AND department = ?`, [depList.get(type?.trim()?.toLowerCase())]);
+          total = Number(countRes[0].count);
+          results = await query(`SELECT * FROM notices WHERE notice_type = 'department' AND department = ? ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`, [depList.get(type?.trim()?.toLowerCase())]);
+        } else {
+          return NextResponse.json({ message: "Invalid type parameter" }, { status: 400 });
+        }
+    }
+
+    const notices = JSON.parse(JSON.stringify(results));
+    notices.forEach((notice) => {
+      if (notice.attachments) notice.attachments = JSON.parse(notice.attachments);
+    });
+
+    return NextResponse.json({
+      page,
+      limit,
+      offset,
+      total,
+      totalPages: Math.ceil(total / limit),
+      data: notices
+    });
+>>>>>>> Stashed changes
 
   } catch (error) {
     console.error('API Error:', error)
