@@ -6,6 +6,7 @@ import { ROLES, hasAccess } from '@/lib/roles'
 import { authOptions } from '@/lib/authOptions'
 import { invalidateProfileIfNeeded } from '@/lib/profileCache'
 import { notice_sub_types } from '@/lib/const';
+import { invalidatePublicationsCache } from '@/lib/publicationsCache'
 
 export async function POST(request) {
   const session = await getServerSession(authOptions)
@@ -16,7 +17,7 @@ export async function POST(request) {
       { status: 403 }
     )
   }
-
+  
   try {
     const { type, ...params } = await request.json()
     
@@ -109,6 +110,7 @@ export async function POST(request) {
             ]
           )
           await invalidateProfileIfNeeded(type, params);
+          await invalidatePublicationsCache(null);
           return NextResponse.json(userResult)
 
         case 'webteam':
@@ -272,6 +274,7 @@ export async function POST(request) {
                  ORDER BY jp.publication_year DESC`
             );
             await invalidateProfileIfNeeded(type, params);
+            await invalidatePublicationsCache(params.email);
             return NextResponse.json({ journalResult, papersWithCollaborators });
 
           case 'conference_papers':
@@ -335,6 +338,7 @@ export async function POST(request) {
               [params.id]
             )
             await invalidateProfileIfNeeded(type, params);
+            await invalidatePublicationsCache(params.email);
 
             return NextResponse.json({ conference: conferencesWithCollaborators[0] || null })
 
@@ -363,6 +367,7 @@ export async function POST(request) {
               }
             }
             await invalidateProfileIfNeeded(type, params);
+            await invalidatePublicationsCache(params.email);
             return NextResponse.json(textbookResult)
 
           case 'edited_books':
@@ -426,6 +431,8 @@ export async function POST(request) {
               }
             }
             await invalidateProfileIfNeeded(type, params);
+            await invalidatePublicationsCache(params.email);
+            
             return NextResponse.json(chapterResult)
 
           case 'sponsored_projects':

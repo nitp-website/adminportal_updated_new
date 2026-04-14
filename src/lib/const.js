@@ -103,3 +103,10 @@ export const facultyTables = [
   
 ]
 
+// For invalidating redis cache of publications
+export const PUBLICATION_TYPES = [
+  'journal_papers',
+  'conference_papers',
+  'textbooks',
+  'book_chapters'
+];
