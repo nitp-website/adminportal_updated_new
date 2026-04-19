@@ -2,91 +2,90 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
-
+import { invalidateProfileIfNeeded } from '@/lib/profileCache'
+import { notice_sub_types } from '@/lib/const';
 export async function PUT(request) {
   try {
     // Use original authentication for now
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session) {
       return NextResponse.json(
-        { message: 'Not authenticated' },
-        { status: 401 }
-      )
+        { message: "Not authenticated" },
+        { status: 401 },
+      );
     }
 
-    const { type, ...params } = await request.json()
+    const { type, ...params } = await request.json();
 
     // Handle profile updates
-    if (type === 'profile') {
+    if (type === "profile") {
       // Check permissions
-      if (session.user.email !== params.email && session.user.role !== 'SUPER_ADMIN') {
+      if (
+        session.user.email !== params.email &&
+        session.user.role !== "SUPER_ADMIN"
+      ) {
         return NextResponse.json(
-          { message: 'Not authorized' },
-          { status: 403 }
-        )
+          { message: "Not authorized" },
+          { status: 403 },
+        );
       }
 
-      let queryParts = []
-      let updateValues = []
+      let queryParts = [];
+      let updateValues = [];
 
       // Handle all possible profile fields
       const fields = [
-          'image',
-          'cv',
-          'name',
-          'designation',
-          'research_interest',
-          'academic_responsibility',
-          'ext_no',
-          'linkedin',
-          'google_scholar',
-          'personal_webpage',
-          'scopus',
-          'vidwan',
-          'orcid'
-      ]
+        "image",
+        "cv",
+        "name",
+        "designation",
+        "research_interest",
+        "academic_responsibility",
+        "ext_no",
+        "linkedin",
+        "google_scholar",
+        "personal_webpage",
+        "scopus",
+        "vidwan",
+        "orcid",
+      ];
 
-      fields.forEach(field => {
-          if (params[field] !== undefined) {
-              queryParts.push(`${field} = ?`)
-              updateValues.push(params[field])
-          }
-      })
+      fields.forEach((field) => {
+        if (params[field] !== undefined) {
+          queryParts.push(`${field} = ?`);
+          updateValues.push(params[field]);
+        }
+      });
 
       // Add email as the last parameter
-      updateValues.push(params.email)
+      updateValues.push(params.email);
 
       const result = await query(
-          `UPDATE user SET ${queryParts.join(', ')} WHERE email = ?`,
-          updateValues
-      )
+        `UPDATE user SET ${queryParts.join(", ")} WHERE email = ?`,
+        updateValues,
+      );
 
-      return NextResponse.json(result)
+      return NextResponse.json(result);
     }
-
     // Notice updates - Super Admin, Academic Admin, and Department Admin access
-    if (type === 'notice') {
+    if (type === "notice") {
       // First, get the notice details to check authorization
       const notice = await query(
         `SELECT notice_type, department FROM notices WHERE id = ?`,
-        [params.data.id]
+        [params.data.id],
       );
 
       if (!notice || notice.length === 0) {
         return NextResponse.json(
-          { message: 'Notice not found' },
-          { status: 404 }
-        )
+          { message: "Notice not found" },
+          { status: 404 },
+        );
       }
 
       const noticeData = notice[0];
-      
-      console.log('DEBUG: Notice update authorization check')
-      console.log('User role:', session.user.role)
-      console.log('User department:', session.user.department)
-      console.log('Notice department:', noticeData.department)
-      console.log('Notice type:', noticeData.notice_type)
+
+
 
       const canUpdateNotice = 
         session.user.role === 'SUPER_ADMIN' ||
@@ -100,19 +99,40 @@ export async function PUT(request) {
       
       if (!canUpdateNotice) {
         return NextResponse.json(
-          { message: 'Not authorized to update notices' },
-          { status: 403 }
-        )
+          { message: "Not authorized to update notices" },
+          { status: 403 },
+        );
       }
 
       // Log any attachments for debugging
       if (params.data.attachments) {
-        console.log(`Notice update ID ${params.data.id}: Attachments:`, 
-          typeof params.data.attachments === 'string' 
-            ? params.data.attachments 
-            : JSON.stringify(params.data.attachments));
+        console.log(
+          `Notice update ID ${params.data.id}: Attachments:`,
+          typeof params.data.attachments === "string"
+            ? params.data.attachments
+            : JSON.stringify(params.data.attachments),
+        );
       }
-        
+      if (params.data.notice_type) {
+        const noticeTypeKey = params.data.notice_type.toUpperCase();
+        if (notice_sub_types.hasOwnProperty(noticeTypeKey)) {
+          if (
+            !params.data.notice_sub_type ||
+            !notice_sub_types[noticeTypeKey].some(
+            ([_,upKey]) => upKey===params.data.notice_sub_type,
+            )
+          ) {
+            return NextResponse.json(
+              {
+                message:
+                  "Invalid or missing notice_sub_type for notice_type: " +
+                  params.data.notice_type,
+              },
+              { status: 400 },
+            );
+          }
+        }
+      }
       const result = await query(
         `UPDATE notices SET 
             title = ?,
@@ -125,6 +145,7 @@ export async function PUT(request) {
             isVisible = ?,
             updatedBy = ?,
             notice_type = ?,
+            notice_sub_type = ?,
             department = ?
         WHERE id = ?`,
         [
@@ -141,14 +162,15 @@ export async function PUT(request) {
             params.data.department || null,
             params.data.id
         ]
-      )      
+      )   
+      await invalidateProfileIfNeeded(type, params);   
       return NextResponse.json(result)
     }
 
     // Super Admin only access
-    if (session.user.role === 'SUPER_ADMIN') {
+    if (session.user.role === "SUPER_ADMIN") {
       switch (type) {
-        case 'event':
+        case "event":
           const eventResult = await query(
             `UPDATE events SET 
              title = ?,
@@ -180,24 +202,26 @@ export async function PUT(request) {
               params.data.id
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(eventResult)
 
-        case 'patents':
+        case "patents":
           const patentResult = await query(
-              `UPDATE patents
+            `UPDATE patents
               SET title = ?, description = ?, patent_date = ?, email = ?
               WHERE id = ?`,
-              [
-                  params.title,
-                  params.description,
-                  params.patent_date,
-                  params.email,
-                  params.id 
-              ]
+            [
+              params.title,
+              params.description,
+              params.patent_date,
+              params.email,
+              params.id,
+            ],
           );
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(patentResult);
 
-        case 'innovation':
+        case "innovation":
           const innovationResult = await query(
             `UPDATE innovation SET 
              title = ?,
@@ -221,9 +245,10 @@ export async function PUT(request) {
               params.data.id
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(innovationResult)
 
-        case 'news':
+        case "news":
           const newsResult = await query(
             `UPDATE news SET 
              title = ?,
@@ -249,9 +274,10 @@ export async function PUT(request) {
               params.data.id
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(newsResult)
 
-        case 'user':
+        case "user":
           if (params.update_social_media_links) {
             const socialResult = await query(
               `UPDATE user SET 
@@ -272,6 +298,7 @@ export async function PUT(request) {
                 session.user.email
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(socialResult)
           } else {
             const {
@@ -284,11 +311,13 @@ export async function PUT(request) {
               research_interest,
               academic_responsibility,
               is_retired,
-              retirement_date
-            } = params
+              retirement_date,
+            } = params;
 
             // Format retirement_date for MySQL or set to NULL
-            const formattedRetirementDate = retirement_date ? new Date(retirement_date).toISOString().slice(0, 10) : null
+            const formattedRetirementDate = retirement_date
+              ? new Date(retirement_date).toISOString().slice(0, 10)
+              : null;
 
             const facultyResult = await query(
               `UPDATE user SET 
@@ -315,6 +344,7 @@ export async function PUT(request) {
                 email
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(facultyResult)
           }
       }
@@ -324,7 +354,7 @@ export async function PUT(request) {
     if (session.user.email === params.email) {
       switch (type) {
         // Academic Records
-        case 'phd_candidates':
+        case "phd_candidates":
           const phdResult = await query(
             `UPDATE phd_candidates SET 
               student_name = ?,
@@ -353,12 +383,13 @@ export async function PUT(request) {
               params.email
             ]
           ); 
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(phdResult)
 
-        case 'journal_papers': {
-            try {
-              const journalResult = await query(
-                `UPDATE journal_papers SET 
+        case "journal_papers": {
+          try {
+            const journalResult = await query(
+              `UPDATE journal_papers SET 
                     authors = ?,
                     title = ?,
                     journal_name = ?,
@@ -374,55 +405,59 @@ export async function PUT(request) {
                     foreign_author_details = ?,
                     nationality_type = ?
                 WHERE id = ? AND email = ?`,
-                [
-                  params.authors,
-                  params.title,
-                  params.journal_name,
-                  params.volume,
-                  params.publication_year,
-                  params.pages,
-                  params.journal_quartile,
-                  params.publication_date,
-                  params.student_involved,
-                  params.student_details,
-                  params.doi_url,
-                  params.indexing,
-                  params.foreign_author_details,
-                  params.nationality_type,
-                  params.id,
-                  params.email
-                ]
+              [
+                params.authors,
+                params.title,
+                params.journal_name,
+                params.volume,
+                params.publication_year,
+                params.pages,
+                params.journal_quartile,
+                params.publication_date,
+                params.student_involved,
+                params.student_details,
+                params.doi_url,
+                params.indexing,
+                params.foreign_author_details,
+                params.nationality_type,
+                params.id,
+                params.email,
+              ],
+            );
+
+            if (params.collaboraters && Array.isArray(params.collaboraters)) {
+              const existingRows = await query(
+                `SELECT email FROM journal_paper_collaborater WHERE journal_paper_id = ?`,
+                [params.id],
+              );
+              const existingEmails = existingRows.map((row) => row.email);
+
+              const newEmails = params.collaboraters.filter(
+                (e) => !existingEmails.includes(e),
+              );
+              const removedEmails = existingEmails.filter(
+                (e) => !params.collaboraters.includes(e),
               );
 
-              if (params.collaboraters && Array.isArray(params.collaboraters)) {
-                const existingRows = await query(
-                  `SELECT email FROM journal_paper_collaborater WHERE journal_paper_id = ?`,
-                  [params.id]
-                );
-                const existingEmails = existingRows.map(row => row.email);
-
-                const newEmails = params.collaboraters.filter(e => !existingEmails.includes(e));
-                const removedEmails = existingEmails.filter(e => !params.collaboraters.includes(e));
-
-                for (const email of newEmails) {
-                  await query(
-                    `INSERT INTO journal_paper_collaborater (journal_paper_id, email)
+              for (const email of newEmails) {
+                await query(
+                  `INSERT INTO journal_paper_collaborater (journal_paper_id, email)
                     VALUES (?, ?)`,
-                    [params.id, email]
-                  );
-                }
-
-                for (const email of removedEmails) {
-                  await query(
-                    `DELETE FROM journal_paper_collaborater 
-                    WHERE journal_paper_id = ? AND email = ?`,
-                    [params.id, email]
-                  );
-                }
+                  [params.id, email],
+                );
               }
 
-              const papersWithCollaborators = await query(
-                `SELECT jp.*, 
+              for (const email of removedEmails) {
+                await query(
+                  `DELETE FROM journal_paper_collaborater 
+                    WHERE journal_paper_id = ? AND email = ?`,
+                  [params.id, email],
+                );
+              }
+            }
+
+            const papersWithCollaborators = await query(
+              `SELECT jp.*, 
                         GROUP_CONCAT(jpc.email) AS collaboraters
                 FROM journal_papers jp
                 LEFT JOIN journal_paper_collaborater jpc
@@ -432,7 +467,7 @@ export async function PUT(request) {
                 ORDER BY jp.publication_year DESC`,
                 [params.id]
               );
-
+              await invalidateProfileIfNeeded(type, params);
               return NextResponse.json({
                 success: true,
                 message: 'Journal paper and collaborators updated successfully',
@@ -447,8 +482,9 @@ export async function PUT(request) {
               );
             }
           }
+        }
 
-        case 'conference_papers':
+        case "conference_papers":
           const conferenceResult = await query(
             `UPDATE conference_papers SET 
               authors = ?,
@@ -486,20 +522,23 @@ export async function PUT(request) {
               params.student_name ? "yes" : "no",
               params.doi,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
 
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { 
-              await query(`DELETE FROM conference_papers_collaborater WHERE conference_papers_id = ?`, [params.id]) 
+            try {
+              await query(
+                `DELETE FROM conference_papers_collaborater WHERE conference_papers_id = ?`,
+                [params.id],
+              );
             } catch (e) {}
-            
+
             for (const email of params.collaboraters) {
               await query(
                 `INSERT INTO conference_papers_collaborater(conference_papers_id, email) VALUES (?, ?)`,
-                [params.id, email]
-              )
+                [params.id, email],
+              );
             }
           }
 
@@ -512,12 +551,15 @@ export async function PUT(request) {
              GROUP BY cp.id`,
             [params.id]
           )
-
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json({ conference: conferencesWithCollaborators[0] || null })
 
+          return NextResponse.json({
+            conference: conferencesWithCollaborators[0] || null,
+          });
 
         // Books
-        case 'textbooks':
+        case "textbooks":
           const textbookResult = await query(
             `UPDATE textbooks SET 
              title = ?,
@@ -537,18 +579,27 @@ export async function PUT(request) {
               params.scopus,
               params.doi,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { await query(`DELETE FROM textbooks_collaborater WHERE textbooks_id = ?`, [params.id]) } catch (e) {}
+            try {
+              await query(
+                `DELETE FROM textbooks_collaborater WHERE textbooks_id = ?`,
+                [params.id],
+              );
+            } catch (e) {}
             for (const email of params.collaboraters) {
-              await query(`INSERT INTO textbooks_collaborater(textbooks_id, email) VALUES (?, ?)`, [params.id, email])
+              await query(
+                `INSERT INTO textbooks_collaborater(textbooks_id, email) VALUES (?, ?)`,
+                [params.id, email],
+              );
             }
           }
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(textbookResult)
 
-        case 'edited_books':
+        case "edited_books":
           const editedBookResult = await query(
             `UPDATE edited_books SET 
              title = ?,
@@ -568,13 +619,21 @@ export async function PUT(request) {
               params.scopus,
               params.doi,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { await query(`DELETE FROM edited_books_collaborater WHERE edited_books_id = ?`, [params.id]) } catch (e) {}
+            try {
+              await query(
+                `DELETE FROM edited_books_collaborater WHERE edited_books_id = ?`,
+                [params.id],
+              );
+            } catch (e) {}
             for (const email of params.collaboraters) {
-              await query(`INSERT INTO edited_books_collaborater(edited_books_id, email) VALUES (?, ?)`, [params.id, email])
+              await query(
+                `INSERT INTO edited_books_collaborater(edited_books_id, email) VALUES (?, ?)`,
+                [params.id, email],
+              );
             }
           }
           const updatedEditedBooks = await query(
@@ -586,10 +645,10 @@ export async function PUT(request) {
              GROUP BY eb.id`,
             [params.id]
           )
-
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json({ editedBook: updatedEditedBooks[0] || null })
 
-        case 'book_chapters':
+        case "book_chapters":
           const chapterResult = await query(
             `UPDATE book_chapters SET 
              authors = ?,
@@ -613,19 +672,28 @@ export async function PUT(request) {
               params.scopus,
               params.doi,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { await query(`DELETE FROM book_chapters_collaborater WHERE book_chapters_id = ?`, [params.id]) } catch (e) {}
+            try {
+              await query(
+                `DELETE FROM book_chapters_collaborater WHERE book_chapters_id = ?`,
+                [params.id],
+              );
+            } catch (e) {}
             for (const email of params.collaboraters) {
-              await query(`INSERT INTO book_chapters_collaborater(book_chapters_id, email) VALUES (?, ?)`, [params.id, email])
+              await query(
+                `INSERT INTO book_chapters_collaborater(book_chapters_id, email) VALUES (?, ?)`,
+                [params.id, email],
+              );
             }
           }
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(chapterResult)
 
         // Projects
-        case 'sponsored_projects':
+        case "sponsored_projects":
           const sponsoredResult = await query(
             `UPDATE sponsored_projects SET 
              project_title = ?,
@@ -651,23 +719,27 @@ export async function PUT(request) {
               params.status,
               params.funds_received,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
             try {
-              await query(`DELETE FROM sponsored_projects_collaborater WHERE sponsored_project_id = ?`, [params.id])
+              await query(
+                `DELETE FROM sponsored_projects_collaborater WHERE sponsored_project_id = ?`,
+                [params.id],
+              );
             } catch (e) {}
             for (const email of params.collaboraters) {
               await query(
                 `INSERT INTO sponsored_projects_collaborater(sponsored_project_id, email) VALUES (?, ?)`,
-                [params.id, email]
-              )
+                [params.id, email],
+              );
             }
           }
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(sponsoredResult)
 
-        case 'consultancy_projects':
+        case "consultancy_projects":
           const consultancyResult = await query(
             `UPDATE consultancy_projects SET 
              project_title = ?,
@@ -689,19 +761,28 @@ export async function PUT(request) {
               params.investigators,
               params.status,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { await query(`DELETE FROM consultancy_projects_collaborater WHERE consultancy_projects_id = ?`, [params.id]) } catch (e) {}
+            try {
+              await query(
+                `DELETE FROM consultancy_projects_collaborater WHERE consultancy_projects_id = ?`,
+                [params.id],
+              );
+            } catch (e) {}
             for (const email of params.collaboraters) {
-              await query(`INSERT INTO consultancy_projects_collaborater(consultancy_projects_id, email) VALUES (?, ?)`, [params.id, email])
+              await query(
+                `INSERT INTO consultancy_projects_collaborater(consultancy_projects_id, email) VALUES (?, ?)`,
+                [params.id, email],
+              );
             }
           }
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(consultancyResult)
 
         // IPR and Startups
-        case 'ipr':
+        case "ipr":
           const iprResult = await query(
             `UPDATE ipr SET 
              title = ?,
@@ -723,18 +804,26 @@ export async function PUT(request) {
               params.applicant_name,
               params.inventors,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { await query(`DELETE FROM ipr_collaborater WHERE ipr_id = ?`, [params.id]) } catch (e) {}
+            try {
+              await query(`DELETE FROM ipr_collaborater WHERE ipr_id = ?`, [
+                params.id,
+              ]);
+            } catch (e) {}
             for (const email of params.collaboraters) {
-              await query(`INSERT INTO ipr_collaborater(ipr_id, email) VALUES (?, ?)`, [params.id, email])
+              await query(
+                `INSERT INTO ipr_collaborater(ipr_id, email) VALUES (?, ?)`,
+                [params.id, email],
+              );
             }
           }
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(iprResult)
 
-        case 'startups':
+        case "startups":
           const startupResult = await query(
             `UPDATE startups SET 
              startup_name = ?,
@@ -752,19 +841,28 @@ export async function PUT(request) {
               params.annual_income,
               params.pan_number,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { await query(`DELETE FROM startups_collaborater WHERE startups_id = ?`, [params.id]) } catch (e) {}
+            try {
+              await query(
+                `DELETE FROM startups_collaborater WHERE startups_id = ?`,
+                [params.id],
+              );
+            } catch (e) {}
             for (const email of params.collaboraters) {
-              await query(`INSERT INTO startups_collaborater(startups_id, email) VALUES (?, ?)`, [params.id, email])
+              await query(
+                `INSERT INTO startups_collaborater(startups_id, email) VALUES (?, ?)`,
+                [params.id, email],
+              );
             }
           }
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(startupResult)
 
         // Teaching and Activities
-        case 'teaching_engagement':
+        case "teaching_engagement":
           const teachingResult = await query(
             `UPDATE teaching_engagement SET 
              semester = ?,
@@ -797,31 +895,33 @@ export async function PUT(request) {
               params.email
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(teachingResult)
 
-        case 'memberships':
+        case "memberships":
           const membershipUpdateResult = await query(
-              `UPDATE memberships 
+            `UPDATE memberships 
               SET email = ?, 
                   membership_id = ?, 
                   membership_society = ?, 
                   start = ?, 
                   end = ? 
               WHERE id = ?`,
-              [
-                  params.email,
-                  params.membership_id,
-                  params.membership_society,
-                  params.start,
-                  params.end,
-                  params.id
-              ]
+            [
+              params.email,
+              params.membership_id,
+              params.membership_society,
+              params.start,
+              params.end,
+              params.id,
+            ],
           );
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(membershipUpdateResult);
 
-        case 'project_supervision':
+        case "project_supervision":
           const supervisionResult = await query(
-              `UPDATE project_supervision SET 
+            `UPDATE project_supervision SET 
                   category = ?, 
                   project_title = ?, 
                   student_details = ?, 
@@ -830,21 +930,22 @@ export async function PUT(request) {
                   start_date = ?, 
                   end_date = ?
                WHERE id = ? AND email = ?`,
-              [
-                  params.category,
-                  params.project_title,
-                  params.student_details,
-                  params.internal_supervisors,
-                  params.external_supervisors,
-                  params.start_date,
-                  params.end_date, 
-                  params.id,
-                  params.email
-              ]
+            [
+              params.category,
+              params.project_title,
+              params.student_details,
+              params.internal_supervisors,
+              params.external_supervisors,
+              params.start_date,
+              params.end_date,
+              params.id,
+              params.email,
+            ],
           );
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(supervisionResult);
 
-        case 'workshops_conferences':
+        case "workshops_conferences":
           const workshopResult = await query(
             `UPDATE workshops_conferences SET 
              event_type = ?,
@@ -864,18 +965,27 @@ export async function PUT(request) {
               params.end_date,
               params.participants_count,
               params.id,
-              params.email
-            ]
-          )
+              params.email,
+            ],
+          );
           if (params.collaboraters && Array.isArray(params.collaboraters)) {
-            try { await query(`DELETE FROM workshops_conferences_collaborater WHERE workshops_conferences_id = ?`, [params.id]) } catch (e) {}
+            try {
+              await query(
+                `DELETE FROM workshops_conferences_collaborater WHERE workshops_conferences_id = ?`,
+                [params.id],
+              );
+            } catch (e) {}
             for (const email of params.collaboraters) {
-              await query(`INSERT INTO workshops_conferences_collaborater(workshops_conferences_id, email) VALUES (?, ?)`, [params.id, email])
+              await query(
+                `INSERT INTO workshops_conferences_collaborater(workshops_conferences_id, email) VALUES (?, ?)`,
+                [params.id, email],
+              );
             }
           }
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(workshopResult)
 
-        case 'institute_activities':
+        case "institute_activities":
           const instituteResult = await query(
             `UPDATE institute_activities SET 
              role_position = ?,
@@ -892,9 +1002,10 @@ export async function PUT(request) {
               params.email
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(instituteResult)
 
-        case 'department_activities':
+        case "department_activities":
           const departmentResult = await query(
             `UPDATE department_activities SET 
              activity_description = ?,
@@ -911,9 +1022,10 @@ export async function PUT(request) {
               params.email
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(departmentResult)
 
-        case 'internships':
+        case "internships":
           const internshipResult = await query(
             `UPDATE internships SET 
              student_name = ?,
@@ -936,9 +1048,10 @@ export async function PUT(request) {
               params.email
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(internshipResult)
 
-        case 'education':
+        case "education":
           const educationResult = await query(
             `UPDATE education SET 
              certification = ?,
@@ -948,20 +1061,16 @@ export async function PUT(request) {
              WHERE id = ? AND email = ?`,
             [params.certification, params.institution, params.passing_year,params.specialization, params.id, params.email]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(educationResult)
       }
     }
-
     return NextResponse.json(
-      { message: 'Could not find matching requests' },
-      { status: 400 }
-    )
-
+      { message: "Could not find matching requests" },
+      { status: 400 },
+    );
   } catch (error) {
-    console.error('API Error:', error)
-    return NextResponse.json(
-      { message: error.message },
-      { status: 500 }
-    )
+    console.error("API Error:", error);
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

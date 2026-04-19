@@ -4,6 +4,8 @@ import { query } from '@/lib/db'
 import { ROLES, hasAccess } from '@/lib/roles'
 // import { authOptions } from '../auth/[...nextauth]/route'
 import { authOptions } from '@/lib/authOptions'
+import { invalidateProfileIfNeeded } from '@/lib/profileCache'
+import { notice_sub_types } from '@/lib/const';
 
 export async function POST(request) {
   const session = await getServerSession(authOptions)
@@ -17,8 +19,7 @@ export async function POST(request) {
 
   try {
     const { type, ...params } = await request.json()
-    // console.log(session.user.role,'dkfas;k')
-    // Notice handling based on role
+    
     if (type === 'notice') {
       console.log('DEBUG: Authorization check for notice creation')
       console.log('User role:', session.user.role)
@@ -41,11 +42,31 @@ export async function POST(request) {
         )
       }
 
+      if (params.data.notice_type ) {
+        const noticeTypeKey = params.data.notice_type.toUpperCase();
+        if (notice_sub_types.hasOwnProperty(noticeTypeKey)) {
+          if (
+            !params.data.notice_sub_type ||
+            !notice_sub_types[noticeTypeKey].some(
+            ([_,upKey]) => upKey===params.data.notice_sub_type,
+            )          ) {
+            return NextResponse.json(
+              {
+                message:
+                  "Invalid or missing notice_sub_type for notice_type: " +
+                  params.data.notice_type,
+              },
+              { status: 400 },
+            );
+          }
+        }
+      }
+
       const noticeResult = await query(
         `INSERT INTO notices(
     id, title, timestamp, openDate, closeDate, important, isVisible, attachments, email, 
-    isDept, notice_link, notice_type, updatedBy, updatedAt, department
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    isDept, notice_link, notice_type, updatedBy, updatedAt, department,notice_sub_type
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
   [
     params.data.id,
     params.data.title,
@@ -59,11 +80,12 @@ export async function POST(request) {
     params.data.isDept || 0,
     params.data.notice_link || null,
     params.data.notice_type || null,
-    session.user.email,
-    new Date().getTime(),
+    session.user.email,    new Date().getTime(),
     params.data.department || null,
+    params.data.notice_sub_type?.trim()?.toUpperCase()||null
   ]
       )
+      await invalidateProfileIfNeeded(type, params);
       return NextResponse.json(noticeResult)
     }
 
@@ -87,6 +109,7 @@ export async function POST(request) {
               params.retirement_date || null
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(userResult)
 
         case 'webteam':
@@ -103,6 +126,7 @@ export async function POST(request) {
               params.role
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(webteamResult)
 
         case 'event':
@@ -126,6 +150,7 @@ export async function POST(request) {
               params.data.type || 'general'
               ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(eventResult)
 
         case 'innovation':
@@ -145,6 +170,7 @@ export async function POST(request) {
               new Date().getTime()
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(innovationResult)
 
         case 'news':
@@ -165,6 +191,7 @@ export async function POST(request) {
               new Date().getTime()
             ]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(newsResult)
 
          
@@ -200,6 +227,7 @@ export async function POST(request) {
                 params.supervisor_type
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(phdResult)
 
           case 'journal_papers':
@@ -244,7 +272,7 @@ export async function POST(request) {
                  GROUP BY jp.id
                  ORDER BY jp.publication_year DESC`
             );
-
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json({ journalResult, papersWithCollaborators });
 
           case 'conference_papers':
@@ -298,7 +326,6 @@ export async function POST(request) {
                 )
               }
             }
-
             const conferencesWithCollaborators = await query(
               `SELECT cp.*, GROUP_CONCAT(cpc.email) AS collaboraters
                FROM conference_papers cp
@@ -308,6 +335,7 @@ export async function POST(request) {
                GROUP BY cp.id`,
               [params.id]
             )
+            await invalidateProfileIfNeeded(type, params);
 
             return NextResponse.json({ conference: conferencesWithCollaborators[0] || null })
 
@@ -335,6 +363,7 @@ export async function POST(request) {
                 )
               }
             }
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(textbookResult)
 
           case 'edited_books':
@@ -369,7 +398,7 @@ export async function POST(request) {
                GROUP BY eb.id`,
               [params.id]
             )
-
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json({ editedBook: editedBooksWithCollaborators[0] || null })
 
           case 'book_chapters':
@@ -397,6 +426,7 @@ export async function POST(request) {
                 )
               }
             }
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(chapterResult)
 
           case 'sponsored_projects':
@@ -425,6 +455,7 @@ export async function POST(request) {
                 )
               }
             }
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(sponsoredResult)
 
           case 'consultancy_projects':
@@ -451,6 +482,7 @@ export async function POST(request) {
                 )
               }
             }
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(consultancyResult)
 
           case 'teaching_engagement':
@@ -473,6 +505,7 @@ export async function POST(request) {
                 params.years_offered
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(teachingResult)
 
             case 'memberships':
@@ -487,6 +520,7 @@ export async function POST(request) {
                   params.end
                 ]
               );
+              await invalidateProfileIfNeeded(type, params);
               return NextResponse.json(membershipResult);
 
             case 'project_supervision':
@@ -505,6 +539,8 @@ export async function POST(request) {
                       params.end_date 
                   ]
               );
+              await invalidateProfileIfNeeded(type, params);
+
               return NextResponse.json(supervisionResult);
       
             case 'workshops_conferences':
@@ -538,7 +574,7 @@ export async function POST(request) {
                   )
                 }
               }
-              
+              await invalidateProfileIfNeeded(type, params);
               return NextResponse.json(workshopResult);
           
           case 'institute_activities':
@@ -553,6 +589,7 @@ export async function POST(request) {
                 params.end_date
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(instituteResult)
 
           case 'department_activities':
@@ -567,6 +604,7 @@ export async function POST(request) {
                 params.end_date
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(departmentResult)
 
           case 'work_experience':
@@ -582,6 +620,7 @@ export async function POST(request) {
                 params.description
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(workExpResult)
 
             case 'ipr':
@@ -605,7 +644,7 @@ export async function POST(request) {
             await query(`INSERT INTO ipr_collaborater(ipr_id, email) VALUES (?, ?)`, [id, email])
           }
         }
-
+        await invalidateProfileIfNeeded(type, params);
         return NextResponse.json({ message: 'Record created successfully', data: iprResult });
     } catch (error) {
         console.error('Error inserting IPR record:', error);
@@ -632,6 +671,7 @@ export async function POST(request) {
                 await query(`INSERT INTO startups_collaborater(startups_id, email) VALUES (?, ?)`, [params.id, email])
               }
             }
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(startupResult)
 
             case 'patents':
@@ -645,6 +685,7 @@ export async function POST(request) {
                   params.email
                 ]
               )
+              await invalidateProfileIfNeeded(type, params);
               return NextResponse.json(patentResult)
 
           case 'internships':
@@ -662,6 +703,7 @@ export async function POST(request) {
                 params.student_type
               ]
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(internshipResult)
 
           case 'education':
@@ -676,6 +718,7 @@ export async function POST(request) {
       ]
 
             )
+            await invalidateProfileIfNeeded(type, params);
             return NextResponse.json(educationResult)
         }
       }
@@ -687,6 +730,7 @@ export async function POST(request) {
             `UPDATE user SET image = ? WHERE email = ?`,
             [params.image_url, params.email]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(imageResult)
 
         case 'profile_cv':
@@ -694,6 +738,7 @@ export async function POST(request) {
             `UPDATE user SET cv = ? WHERE email = ?`,
             [params.cv_url, params.email]
           )
+          await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(cvResult)
       }
     }

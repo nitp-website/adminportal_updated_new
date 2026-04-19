@@ -29,6 +29,7 @@
     "dotenv": "^16.6.1",
     "eslint-plugin-react": "^7.32.2",
     "googleapis": "^71.0.0",
+    "ioredis": "^5.10.1",
     "mui-styles": "^2.0.7",
     "multer": "^1.4.2",
     "mysql2": "^3.14.1",

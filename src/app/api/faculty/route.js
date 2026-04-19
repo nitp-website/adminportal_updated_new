@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { query, parallel, batchQuery } from '@/lib/db'
 import { depList, facultyTables } from '@/lib/const'
+import { getCachedUserProfile, cacheUserProfile, refreshProfileCacheTTL } from '@/lib/profileCache';
 
 const allowedOrigins = [
   "https://adminportal-updated-new.vercel.app/",  
@@ -142,7 +143,21 @@ export async function GET(request) {
         // Individual faculty profile query - OPTIMIZED WITH CONNECTION POOLING
         console.log(`[Faculty API] Fetching data for: ${type}`)
         const startTime = Date.now()
-        
+        // FIRST CHECK CACHE
+        let profileData = await getCachedUserProfile(type);
+         if (profileData) {
+          // Cache hit! Return immediately
+          const cacheTime = Date.now() - startTime;
+          console.log(`[Faculty API] Cache hit - returned in ${cacheTime}ms`);
+           refreshProfileCacheTTL(type).catch(e => console.error('TTL refresh error:', e));
+           return NextResponse.json(profileData, {
+            headers: {
+              'X-Cache': 'HIT',
+              'X-Response-Time': `${cacheTime}ms`,
+            }
+          });
+        }
+        console.log(`[Faculty API] Cache miss for ${type}, fetching from database...`);
         // Get user profile data first
         const profileResult = await query(
             `SELECT * FROM user WHERE email = ? AND is_deleted = 0`,
@@ -153,7 +168,7 @@ export async function GET(request) {
           return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        const profileData = {
+        profileData = {
           profile: profileResult[0]
         }
 
@@ -310,23 +325,30 @@ export async function GET(request) {
             }
           }
           
-          const endTime = Date.now()
-          console.log(`[Faculty API] Completed in ${endTime - startTime}ms using connection pool`)
-          
-          return NextResponse.json(profileData)
-          
-        } catch (error) {
-          console.error('[Faculty API] Parallel query error:', error)
-          // Fallback to empty data structure instead of failing
-          dataQueries.forEach(({ table }) => {
-            if (!profileData[table]) {
-              profileData[table] = []
+          const dbTime = Date.now() - startTime;
+          console.log(`[Faculty API] Database queries completed in ${dbTime}ms`);
+
+          // CACHE THE RESULT
+          console.log(`[Faculty API] Caching profile for ${type}...`);
+          if (profileData?.profile) {
+            cacheUserProfile(type, profileData).catch(console.error);
+      }
+
+          return NextResponse.json(profileData, {
+            headers: {
+              'X-Cache': 'MISS',
+              'X-Response-Time': `${dbTime}ms`,
             }
           })
-          return NextResponse.json(profileData)
+          
+        } catch (error) {
+          console.error('[Faculty API] Query error:', error)
+          return NextResponse.json(
+            { message: error.message },
+            { status: 500 }
+          )
         }
     }
-
     // Return response with CORS headers
     return NextResponse.json(results, {
       headers: {
