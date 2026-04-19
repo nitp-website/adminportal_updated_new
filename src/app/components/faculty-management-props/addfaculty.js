@@ -179,7 +179,7 @@ export function AddFaculty({ open, onClose, onSuccess }) {
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6}>
-                {formData.role == 4 ? (
+                {formData.department === 'Officers' ? (
                   <TextField
                     fullWidth
                     select

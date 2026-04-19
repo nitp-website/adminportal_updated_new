@@ -64,9 +64,9 @@ export async function GET(request) {
       
         return NextResponse.json(counts);
       } else if (type === "all"){
-    // Faculty counts
+    // Faculty counts (includes faculty, officers in Officers department, and staff)
     const facultyCount = await query(
-      'SELECT COUNT(*) as count FROM user WHERE role IN (3, 4, 5)', // FACULTY, OFFICER, STAFF
+      'SELECT COUNT(*) as count FROM user WHERE (role = 3 OR department = "Officers" OR role = 5) AND is_deleted = 0', // FACULTY, OFFICER (by department), STAFF
       []
     )
     counts.faculty = facultyCount[0].count

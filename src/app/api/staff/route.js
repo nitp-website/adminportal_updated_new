@@ -2,121 +2,91 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 
 const allowedOrigins = [
-  "https://adminportal-updated-new.vercel.app/",
+  'https://adminportal-updated-new.vercel.app',
   'http://localhost:3000',
-  'https://faculty-performance-appraisal-performa.vercel.app/',
-    "https://nitp.ac.in/",
+  'https://faculty-performance-appraisal-performa.vercel.app',
+  'https://nitp.ac.in',
 ]
 
+function getCorsHeaders(origin) {
+  return {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  }
+}
+
+// ✅ Handle preflight
+export async function OPTIONS(request) {
+  const origin = request.headers.get('origin')
+  return new NextResponse(null, {
+    headers: getCorsHeaders(origin),
+  })
+}
+
 export async function GET(request) {
+  const origin = request.headers.get('origin')
+
   try {
-    // Add CORS headers
-    const response = NextResponse
-
-    // Handle preflight requests
-    if (request.method === 'OPTIONS') {
-      return new NextResponse(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-      })
-    }
-
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type')
 
-    const origin = request.headers.get('origin')
-    const isAllowedOrigin = allowedOrigins.includes(origin)
+    let condition = ''
 
     switch (type) {
       case 'all':
-        const results = await query(
-          `SELECT
-            u.*,
-            CASE u.role
-              WHEN 1 THEN 'SUPER_ADMIN'
-              WHEN 2 THEN 'ACADEMIC_ADMIN'
-              WHEN 3 THEN 'FACULTY'
-              WHEN 4 THEN 'OFFICER'
-              WHEN 5 THEN 'STAFF'
-              WHEN 6 THEN 'DEPT_ADMIN'
-              WHEN 7 THEN 'TENDER_NOTICE_ADMIN'
-            END as role_name,
-            COALESCE(r.priority, 999) as role_priority,
-            COALESCE(dp.priority_order, 999) as designation_priority
-          FROM user u
-          LEFT JOIN roles r ON (
-            CASE u.role
-              WHEN 1 THEN 'SUPER_ADMIN'
-              WHEN 2 THEN 'ACADEMIC_ADMIN'
-              WHEN 3 THEN 'FACULTY'
-              WHEN 4 THEN 'OFFICER'
-              WHEN 5 THEN 'STAFF'
-              WHEN 6 THEN 'DEPT_ADMIN'
-              WHEN 7 THEN 'TENDER_NOTICE_ADMIN'
-            END = r.role_key
-          )
-          LEFT JOIN designation_priorities dp ON u.designation = dp.designation
-          WHERE u.is_deleted = 0 AND (u.role = 4 OR u.role = 5)
-          ORDER BY role_priority ASC, designation_priority ASC, u.name ASC`
-        )
-        // Transform the results to include role name
-        return NextResponse.json(results.map(user => ({
-          ...user,
-          role: user.role_name // Replace numeric role with string role
-        })))
+        condition = `AND (u.department = 'Officers' OR r.role_key = 'STAFF')`
+        break
 
       case 'officers':
-        const officerResults = await query(
-          `SELECT
-            u.*,
-            CASE u.role
-              WHEN 4 THEN 'OFFICER'
-            END as role_name,
-            COALESCE(r.priority, 999) as role_priority,
-            COALESCE(dp.priority_order, 999) as designation_priority
-          FROM user u
-          LEFT JOIN roles r ON r.role_key = 'OFFICER'
-          LEFT JOIN designation_priorities dp ON u.designation = dp.designation
-          WHERE u.is_deleted = 0 AND u.role = 4
-          ORDER BY role_priority ASC, designation_priority ASC, u.name ASC`
-        )
-        return NextResponse.json(officerResults.map(user => ({
-          ...user,
-          role: user.role_name
-        })))
+        condition = `AND u.department = 'Officers'`
+        break
 
       case 'staff':
-        const staffResults = await query(
-          `SELECT
-            u.*,
-            CASE u.role
-              WHEN 5 THEN 'STAFF'
-            END as role_name,
-            COALESCE(r.priority, 999) as role_priority,
-            COALESCE(dp.priority_order, 999) as designation_priority
-          FROM user u
-          LEFT JOIN roles r ON r.role_key = 'STAFF'
-          LEFT JOIN designation_priorities dp ON u.designation = dp.designation
-          WHERE u.is_deleted = 0 AND u.role = 5
-          ORDER BY role_priority ASC, designation_priority ASC, u.name ASC`
-        )
-        return NextResponse.json(staffResults.map(user => ({
-          ...user,
-          role: user.role_name
-        })))
+        condition = `AND r.role_key = 'STAFF'`
+        break
 
       default:
-        return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+        return NextResponse.json(
+          { error: 'Invalid type parameter' },
+          { status: 400, headers: getCorsHeaders(origin) }
+        )
     }
+
+    const results = await query(`
+      SELECT
+        u.*,
+        r.role_key AS role_name,
+        COALESCE(r.priority, 999) AS role_priority,
+        COALESCE(dp.priority_order, 999) AS designation_priority
+      FROM user u
+      LEFT JOIN roles r ON u.role = r.id
+      LEFT JOIN designation_priorities dp 
+        ON REPLACE(REPLACE(LOWER(u.designation), '&', ' & '), '.', '') 
+         = REPLACE(REPLACE(LOWER(dp.designation), '&', ' & '), '.', '')
+      WHERE u.is_deleted = 0
+      ${condition}
+      ORDER BY 
+        dp.priority_order ASC,   -- ✅ PRIMARY SORT (your requirement)
+        r.priority ASC,          -- ✅ secondary
+        u.name ASC
+    `)
+
+    const formatted = results.map(user => ({
+      ...user,
+      role: user.role_name,
+    }))
+
+    return NextResponse.json(formatted, {
+      headers: getCorsHeaders(origin),
+    })
 
   } catch (error) {
     console.error('Staff API Error:', error)
+
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: getCorsHeaders(origin) }
     )
   }
 }
