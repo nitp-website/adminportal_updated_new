@@ -15,6 +15,8 @@ import EventIcon from '@mui/icons-material/Event'
 import NewspaperIcon from '@mui/icons-material/Newspaper'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import GroupIcon from '@mui/icons-material/Group'
+import SettingsIcon from '@mui/icons-material/Settings'
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import { ROLES } from '@/lib/roles'
 import { useFacultyData } from '@/context/FacultyDataContext'
 
@@ -124,7 +126,8 @@ const menuItems = {
     { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> },
     { text: 'News', href: '/news', icon: <NewspaperIcon /> },
     { text: 'Innovation', href: '/innovation', icon: <LightbulbIcon /> },
-    { text: 'Faculty Management', href: '/faculty-management', icon: <GroupIcon /> }
+    { text: 'Faculty Management', href: '/faculty-management', icon: <GroupIcon /> },
+    { text: 'Role Management', href: '/role-management', icon: <AdminPanelSettingsIcon /> }
   ],
   [ROLES.ACADEMIC_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
@@ -139,10 +142,16 @@ const menuItems = {
   ],
   [ROLES.OFFICER]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
-    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> }
+    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> },
+    { text: 'Designation Management', href: '/designation-management', icon: <AdminPanelSettingsIcon /> },
+    { text: 'Officer Control Panel', href: '/officer-control-panel', icon: <SettingsIcon /> }
   ],
   [ROLES.STAFF]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> }
+  ],
+  [ROLES.TENDER_NOTICE_ADMIN]: [
+    { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
+    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> }
   ]
 }
 

@@ -1,10 +1,20 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { depList } from '@/lib/const'
+import { getPublicationsKey,getPublicationsCache,setPublicationsCache } from '@/lib/publicationsCache'
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type')
+    const type = (searchParams.get('type') || 'all').toLowerCase();
+
+    // GET CACHE
+    const cacheKey = getPublicationsKey(type);
+    const cached = await getPublicationsCache(cacheKey);
+    if (cached) {
+      console.log("CACHE HIT");
+      return NextResponse.json(cached);
+    }
 
     let results
     switch (type) {
@@ -22,6 +32,10 @@ export async function GET(request) {
           `SELECT * FROM book_chapters`
         );
         const data = [...conference_papers,...textbooks_data,...journal_papers,...book_chapters];
+
+        // SET CACHE
+        await setPublicationsCache(cacheKey, data);
+
         return NextResponse.json(data);
 
       default:
@@ -48,6 +62,7 @@ export async function GET(request) {
             [depList.get(type)]
           );
           const data = [...textbooks_data, ...journal_papers, ...book_chapters];
+          await setPublicationsCache(cacheKey, data);
           return NextResponse.json(data);
         } else {
           return NextResponse.json(

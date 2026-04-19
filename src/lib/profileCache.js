@@ -65,6 +65,22 @@ export async function getCachedUserProfile(email) {
 /**
  * Invalidate profile cache (when profile is updated)
  */
+/**
+ * Invalidate profile cache (when profile is updated)
+ */
+export async function invalidateUserProfile(email) {
+  try {
+    const redis = getRedisClient();
+    const key = getCacheKey(email);
+    
+    await redis.del(key);
+    console.log(`✓ Profile cache invalidated for ${email}`);
+    return true;
+  } catch (error) {
+    console.error('Error invalidating profile:', error);
+    return false;
+  }
+}
 
 export async function invalidateProfileIfNeeded(type, params) {
   // Tables that are part of the profile data

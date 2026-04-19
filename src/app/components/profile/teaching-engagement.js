@@ -143,7 +143,8 @@ export const AddForm = ({ handleClose, modal }) => {
                         <MenuItem value="UG">UG</MenuItem>
                         <MenuItem value="PG">PG</MenuItem>
                         <MenuItem value="PhD">PhD</MenuItem>
-                        <MenuItem value="B.Plan">B.Plan</MenuItem>
+                        <MenuItem value="MCA">MCA</MenuItem>
+                        <MenuItem value="DD">DD</MenuItem>
                         <MenuItem value="M.Plan">M.Plan</MenuItem>
                         <MenuItem value="Research Associate">Research Associate</MenuItem>
                     </Select>
@@ -361,6 +362,8 @@ export const EditForm = ({ handleClose, modal, values }) => {
                     >
                         <MenuItem value="UG">UG</MenuItem>
                         <MenuItem value="PG">PG</MenuItem>
+                        <MenuItem value="MCA">MCA</MenuItem>
+                        <MenuItem value="DD">DD</MenuItem>
                         <MenuItem value="PhD">PhD</MenuItem>
                         <MenuItem value="B.Plan">B.Plan</MenuItem>
                         <MenuItem value="M.Plan">M.Plan</MenuItem>
@@ -466,7 +469,7 @@ export const EditForm = ({ handleClose, modal, values }) => {
                         required
                         value={content.years_offered}
                         onChange={handleChange}
-                        helperText="e.g., 2020-2023 *strictly in the format YYYY-YYYY otherwise no computation will be done"
+                        helperText="e.g., 2024 *strictly in the format YYYY otherwise no computation will be done"
                     />
                 </DialogContent>
                 <DialogActions>

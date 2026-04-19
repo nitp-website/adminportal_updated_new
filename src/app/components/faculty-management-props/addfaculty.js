@@ -13,9 +13,9 @@ import {
   Divider,
   Box,
 } from '@mui/material'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ROLES } from '@/lib/roles'
-import { depList } from '@/lib/const'
+import { depList, officerDesignations } from '@/lib/const'
 import Toast from '@/app/components/common/Toast'
 
 export function AddFaculty({ open, onClose, onSuccess }) {
@@ -37,6 +37,27 @@ export function AddFaculty({ open, onClose, onSuccess }) {
     severity: 'success',
     message: ''
   })
+  const [dynamicDesignations, setDynamicDesignations] = useState(officerDesignations)
+  useEffect(() => {
+    const fetchDesignations = async () => {
+      try {
+        const response = await fetch('/api/designation-priority')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.length > 0) {
+            const orderedDesignations = data
+              .sort((a, b) => a.priority_order - b.priority_order)
+              .map(item => item.designation)
+            setDynamicDesignations(orderedDesignations)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching designation priorities:', error)
+      }
+    }
+
+    fetchDesignations()
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -158,14 +179,32 @@ export function AddFaculty({ open, onClose, onSuccess }) {
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Designation"
-                  value={formData.designation}
-                  onChange={(e) => setFormData(prev => ({ ...prev, designation: e.target.value }))}
-                  variant="outlined"
-                  placeholder="Enter designation..."
-                />
+                {formData.department === 'Officers' ? (
+                  <TextField
+                    fullWidth
+                    select
+                    label="Designation"
+                    required
+                    value={formData.designation}
+                    onChange={(e) => setFormData(prev => ({ ...prev, designation: e.target.value }))}
+                    variant="outlined"
+                  >
+                    {dynamicDesignations.map((designation) => (
+                      <MenuItem key={designation} value={designation}>
+                        {designation}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                ) : (
+                  <TextField
+                    fullWidth
+                    label="Designation"
+                    value={formData.designation}
+                    onChange={(e) => setFormData(prev => ({ ...prev, designation: e.target.value }))}
+                    variant="outlined"
+                    placeholder="Enter designation..."
+                  />
+                )}
               </Grid>
               
               <Grid item xs={12} sm={6}>

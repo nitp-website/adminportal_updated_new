@@ -38,6 +38,25 @@ export const depList = new Map([
   ['others', 'Other Employees']
 ])
 
+export const officerDesignations = [
+  'Registrar',
+  'Joint Registrar (Exam)',
+  'Joint Registrar (F & A)',
+  'Deputy Registrar (Establishemnt)',
+  'Assistant Registrar (R & C)',
+  'Assistant Registrar (Academic)',
+  'Assistant Registrar (Procurement)',
+  'Assistant Registrar (Director\'s Office)',
+  'Assistant Registrar',
+  'Sr. Medical Officer',
+  'Medical Officer',
+  'Sr. Scientific & Technical Officer',
+  'Assistant Librarian',
+  'SAS Officer',
+  'Maintenance Engineer (Elec)',
+  'Maintenance Engineer (Civil)'
+]
+
 // book_chapters
 // conference_papers
 // consultancy_projects
@@ -103,3 +122,10 @@ export const facultyTables = [
   
 ]
 
+// For invalidating redis cache of publications
+export const PUBLICATION_TYPES = [
+  'journal_papers',
+  'conference_papers',
+  'textbooks',
+  'book_chapters'
+];

@@ -1,0 +1,55 @@
+name:  Create Docker Hub Repository
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-repo:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name:  Show deployment info
+      run: |
+        echo " Repository: ${{ github.repository }}"
+        echo " Branch: ${{ github.ref_name }}"
+        echo "Commit: ${{ github.sha }}"
+        echo " Actor: ${{ github.actor }}"
+
+    - name:  Create Docker Hub Repository
+      run: |
+        # Define Docker Hub API endpoint
+        DOCKER_HUB_API="https://hub.docker.com/v2/repositories"
+        
+        # Login to Docker Hub API
+        TOKEN=$(curl -s -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
+          https://hub.docker.com/v2/users/login/ | jq -r .token)
+        
+        # Check if token was retrieved successfully
+        if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+          echo " Failed to login to Docker Hub API"
+          exit 1
+        fi
+        
+        # Check if repository already exists
+        REPO_CHECK=$(curl -s -H "Authorization: JWT $TOKEN" \
+          "$DOCKER_HUB_API/${{ secrets.DOCKERHUB_USERNAME }}/nitp-admin-portal")
+        
+        # Create repository if it doesn't exist
+        if [[ $REPO_CHECK == *"not found"* ]]; then
+          echo " Creating Docker Hub repository: ${{ secrets.DOCKERHUB_USERNAME }}/nitp-admin-portal"
+          
+          curl -s -X POST \
+            -H "Authorization: JWT $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"namespace":"${{ secrets.DOCKERHUB_USERNAME }}","name":"nitp-admin-portal","description":"NIT Patna official admin website","is_private":false}' \
+            "$DOCKER_HUB_API/${{ secrets.DOCKERHUB_USERNAME }}/"
+            
+          echo " Repository created successfully"
+        else
+          echo "Repository already exists"
+        fi

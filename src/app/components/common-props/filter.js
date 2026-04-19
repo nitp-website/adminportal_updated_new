@@ -13,7 +13,7 @@ import {
     MenuItem,
     Select,
 } from '@mui/material'
-import { depList, administrationList } from '@/lib/const'
+import { depList, administrationList,notice_sub_types } from '@/lib/const'
 
 const Filter = ({ type, setEntries }) => {
     const [open, setOpen] = React.useState(false)
@@ -22,8 +22,24 @@ const Filter = ({ type, setEntries }) => {
         end_date: '',
         department: 'all',
         notice_type: 'department',
+        notice_sub_type:null
     })
-
+    const currentNoticeSubTypes = React.useMemo(() => {
+        if (!range.notice_type) return undefined;
+     
+        let key = range.notice_type;
+       
+        if (typeof key === 'string') {
+            key = key.toUpperCase();
+        }
+        const rawSubTypes = notice_sub_types[key];
+        if (Array.isArray(rawSubTypes)) {
+           
+            return rawSubTypes.map(arr => arr[1]);
+        }
+        return undefined;
+    }, [range.notice_type]); 
+    console.log(currentNoticeSubTypes)
     const handleClickOpen = () => {
         setOpen(true)
     }
@@ -38,10 +54,7 @@ const Filter = ({ type, setEntries }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        // console.log(range);
-        // console.log(new Date(range.start_date).getTime());
-        // console.log(new Date(range.end_date).getTime());
-        // console.log(new Date());
+       
         let data = {
             start_date:
                 range.start_date !== ''
@@ -52,6 +65,7 @@ const Filter = ({ type, setEntries }) => {
                     ? new Date(range.end_date).getTime()
                     : new Date().setYear(new Date().getFullYear() + 10),
             notice_type: range.notice_type,
+            notice_sub_type:range.notice_sub_type,
             department: range.department,
         }
 
@@ -126,6 +140,37 @@ const Filter = ({ type, setEntries }) => {
                             </FormControl>
                         )}
                         {type === 'notice' &&
+                            Array.isArray(currentNoticeSubTypes) &&
+                            currentNoticeSubTypes.length > 0 && (
+                                <FormControl
+                                    style={{
+                                        margin: `10px auto`,
+                                        width: `100%`,
+                                    }}
+                                    required
+                                >
+                                    <InputLabel id="notice-sub-type">
+                                        Notice Sub Type
+                                    </InputLabel>
+                                    <Select
+                                        labelId="notice-sub-type"
+                                        autoWidth
+                                        id="notice-sub-type"
+                                        name="notice_sub_type"
+                                        value={range.notice_sub_type}
+                                        onChange={handleChange}
+                                        input={<Input />}
+                                    >
+                                        {currentNoticeSubTypes.map((value, idx) => (
+                                            <MenuItem key={`${value}${idx}`} value={value}>
+                                                {value}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
+                       
+                             {type === 'notice' &&
                             range.notice_type == 'department' && (
                                 <FormControl
                                     style={{

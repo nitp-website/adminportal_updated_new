@@ -148,7 +148,8 @@ const Notice = ({ detail }) => {
                         </Tooltip>
                         {(session?.user?.role === 'SUPER_ADMIN' ||
                             (session?.user?.role === 'ACADEMIC_ADMIN' && detail.notice_type === 'academics') ||
-                            (session?.user?.role === 'DEPT_ADMIN' && detail.notice_type === 'department' && detail.department === session.user.department)) && (
+                            (session?.user?.role === 'DEPT_ADMIN' && detail.notice_type === 'department' && detail.department === session.user.department) ||
+                            (session?.user?.role === 'TENDER_NOTICE_ADMIN' && detail.notice_type === 'tender')) && (
                             <>
                                 <Tooltip title="Edit Notice">
                                     <IconButton
@@ -216,6 +217,8 @@ const DataDisplay = ({ data }) => {
             } else if (session?.user?.role === 'DEPT_ADMIN') {
                 noticeType = 'department';
                 department = session.user.department;
+            } else if (session?.user?.role === 'TENDER_NOTICE_ADMIN') {
+                noticeType = 'tender';
             }
 
             fetch('/api/notice', {
@@ -228,6 +231,7 @@ const DataDisplay = ({ data }) => {
                     to: (page + 1) * rowsPerPage,
                     type: 'between',
                     notice_type: noticeType,
+                    notice_sub_type:filterQuery?.notice_sub_type||null,
                     department: department
                 })
             })
@@ -249,9 +253,15 @@ const DataDisplay = ({ data }) => {
                     notice.notice_type === 'department' && 
                     notice.department === session.user.department
                 );
+            } else if (session?.user?.role === 'TENDER_NOTICE_ADMIN') {
+                filteredData = filteredData.filter(notice => notice.notice_type === 'tender');
             } else if (filterQuery.notice_type && filterQuery.notice_type !== 'all') {
                 filteredData = filteredData.filter(notice => notice.notice_type === filterQuery.notice_type);
             }
+            if (filterQuery?.notice_sub_type) {
+                filteredData = filteredData.filter(notice => notice.notice_sub_type === filterQuery.notice_sub_type);
+            }
+       
             
             if (filterQuery.department && filterQuery.department !== 'all') {
                 filteredData = filteredData.filter(notice => notice.department === filterQuery.department);
@@ -271,7 +281,8 @@ const DataDisplay = ({ data }) => {
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h4" sx={{ color: '#333', fontWeight: 600 }}>
                     {session?.user?.role === 'ACADEMIC_ADMIN' ? 'Academic Notices' : 
-                     session?.user?.role === 'DEPT_ADMIN' ? `${session.user.department} Notices` : 
+                     session?.user?.role === 'DEPT_ADMIN' ? `${session.user.department} Notices` :
+                     session?.user?.role === 'TENDER_NOTICE_ADMIN' ? 'Tender Notices' : 
                      'Recent Notices'}
                 </Typography>
                 
@@ -284,7 +295,7 @@ const DataDisplay = ({ data }) => {
                 >
                     Add New Notice
                 </Button>
-                    {session?.user?.role !== 'ACADEMIC_ADMIN' && session?.user?.role !== 'DEPT_ADMIN' && (
+                    {session?.user?.role !== 'ACADEMIC_ADMIN' && session?.user?.role !== 'DEPT_ADMIN' && session?.user?.role !== 'TENDER_NOTICE_ADMIN' && (
                 <Filter type="notice" setEntries={setFilterQuery} style={{ color: '#830001' }}/>
                     )}
                 </Box>

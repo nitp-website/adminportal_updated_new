@@ -20,12 +20,12 @@ import {
 } from '@mui/material'
 import { Delete, Link, Warning } from '@mui/icons-material'
 import { useSession } from 'next-auth/react'
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useMemo } from 'react'
 import { dateformatter } from './../common-props/date-formatter'
 import { ConfirmDelete } from './confirm-delete'
 import { AddAttachments } from './../common-props/add-attachment'
 import { handleNewAttachments } from './../common-props/add-attachment'
-import { administrationList, depList } from './../../../lib/const'
+import { administrationList, depList, notice_sub_types } from '@/lib/const'
 
 // Helper function to format dates for edit form
 const formatDateForInput = (dateValue) => {
@@ -71,10 +71,10 @@ export const EditForm = ({ data, handleClose, modal }) => {
         type: data.notice_type || 'general',
         department: data.department || null,
         important: data.important || false,
-        department: data.department || null,
         isDept: data.isDept || 0,
-        email:data?.email||null,
-        
+        email: data?.email || null,
+        // Support notice sub types in content state (default or predefined)
+        notice_sub_type: data.notice_sub_type || ''
     })
 
     const [verifyDelete, setVerifyDelete] = useState(false)
@@ -99,13 +99,28 @@ export const EditForm = ({ data, handleClose, modal }) => {
 
     const [new_attach, setNew_attach] = useState([]);
 
+    // If selected notice type or predefined data has sub types, this returns the subtypes or null/undefined (Array or undefined).
+    const currentNoticeSubTypes = useMemo(() => {
+        if (!content.type) return undefined;
+     
+        let key = content.type;
+       
+        if (typeof key === 'string') {
+            key = key.toUpperCase();
+        }
+        const rawSubTypes = notice_sub_types[key];
+        if (Array.isArray(rawSubTypes)) {
+           
+            return rawSubTypes.map(arr => arr[1]);
+        }
+        return undefined;
+    }, [content.type]);
+
     const handleChange = (e) => {
-        const value = e.target.type === 'checkbox' ? 
-            e.target.checked ? 1 : 0 : 
-            e.target.value;
-            
-        setContent({ ...content, [e.target.name]: value });
-    }
+        const { name, type, value, checked } = e.target;
+        const fieldValue = type === 'checkbox' ? (checked ? 1 : 0) : value;
+        setContent((prev) => ({ ...prev, [name]: fieldValue }));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -125,13 +140,15 @@ export const EditForm = ({ data, handleClose, modal }) => {
                 attachments = [...attachments, ...newAttachmentsWithIds]
             }
 
+            // For payload: pass notice_sub_type as 'notice_sub_type' property
             const finaldata = {
                 id: content.id,
                 title: content.title,
-                email:content.email,
+                email: content.email,
                 openDate: new Date(content.openDate).getTime(),
                 closeDate: new Date(content.closeDate).getTime(),
                 notice_type: content.type,
+                notice_sub_type: currentNoticeSubTypes?(content.notice_sub_type || undefined):undefined,
                 category: content.category,
                 updatedAt: Date.now(),
                 updatedBy: session.user.email,
@@ -297,19 +314,25 @@ export const EditForm = ({ data, handleClose, modal }) => {
                                         onChange={handleChange}
                                         label="Notice Type"
                                         disabled={session?.user?.role === 'DEPT_ADMIN'}
+                                        required
                                     >
                                         {session?.user?.role === 'DEPT_ADMIN' ? (
                                             <MenuItem value="department">Department</MenuItem>
                                         ) : [
                                             <MenuItem value="general" key="general">General</MenuItem>,
                                             <MenuItem value="department" key="department">Department</MenuItem>,
-                                            ...Array.from(administrationList).map(([key, value]) => (
-                                                <MenuItem key={key} value={key}>{value}</MenuItem>
+                                            ...Array.from(administrationList).map(
+                                                ([key, value]) => (
+                                                    <MenuItem key={key} value={key}>
+                                                        {value}
+                                                    </MenuItem>
                                             ))
                                         ]}
                                     </Select>
                                 </FormControl>
                             </Grid>
+                        
+                            {/* Department list select as before */}
                             {content.type === 'department' && (
                                 <Grid item xs={12} sm={6}>
                                     <FormControl fullWidth margin="dense" variant="outlined">
@@ -320,6 +343,7 @@ export const EditForm = ({ data, handleClose, modal }) => {
                                             onChange={handleChange}
                                             label="Department"
                                             disabled={session?.user?.role === 'DEPT_ADMIN'}
+                                            required
                                         >
                                             {session?.user?.role === 'DEPT_ADMIN' ? (
                                                 <MenuItem value={session.user.department}>{session.user.department}</MenuItem>
@@ -327,6 +351,29 @@ export const EditForm = ({ data, handleClose, modal }) => {
                                                 Array.from(depList).map(([key, value]) => (
                                                     <MenuItem key={value} value={value}>{value}</MenuItem>
                                                 ))
+                                            )}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                            )}
+
+                            {/* If current type supports sub-types, show sub-type select */}
+                            {Array.isArray(currentNoticeSubTypes) && currentNoticeSubTypes.length > 0 && (
+                                <Grid item xs={12} sm={6}>
+                                    <FormControl fullWidth margin="dense" variant="outlined">
+                                        <InputLabel>Sub-Type</InputLabel>
+                                        <Select
+                                            name="notice_sub_type"
+                                            value={content.notice_sub_type || ""}
+                                            onChange={handleChange}
+                                            label="Sub-Type"
+                                            required
+                                        >
+                                            <MenuItem value="">
+                                                <em>Select Sub-Type</em>
+                                            </MenuItem>
+                                            {currentNoticeSubTypes.map(subType =>
+                                                <MenuItem key={subType} value={subType}>{subType}</MenuItem>
                                             )}
                                         </Select>
                                     </FormControl>

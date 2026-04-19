@@ -71,7 +71,7 @@ function Collaborater({
                             type="text"
                             value={member}
                             onChange={(e) => handleInputChange(index, e.target.value)}
-                            placeholder="Enter faculty name or email"
+                            placeholder="Enter faculty Email"
                             className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                         />
                         {facultyMembers.length > 1 && (

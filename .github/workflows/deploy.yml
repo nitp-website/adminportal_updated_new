@@ -1,25 +1,86 @@
-name: CI/CD for Nitp-Admin Portal
+name:  Docker Hub Build & Deploy
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name:  Checkout Code
+      uses: actions/checkout@v4
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_nitp_admin
-          chmod 600 ~/.ssh/id_nitp_admin
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+    - name:  Show deployment info
+      run: |
 
-      - name: Deploy to EC2
-        run: |
-          ssh -i ~/.ssh/id_nitp_admin ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'sudo su && sudo bash -c "cd /root && ./latest_admin_deploy.sh"'
+    - name:  Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name:  Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME_Aashish }}
+        password: ${{ secrets.DOCKERHUB_Password_Aashish }}
+
+    - name:  Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ secrets.DOCKERHUB_USERNAME_Aashish }}/nitp-admin-portal
+        tags: |
+          type=raw,value=latest
+          type=sha,prefix=
+
+    - name:  Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name:  Deploy to Server & prune on success
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          set -e
+          echo "Connected to server"
+          
+          if [ -x ./run-admin-nitp.sh ]; then
+            ./run-admin-nitp.sh
+          else
+            echo " run-admin-nitp.sh not found or not executable; proceeding without it"
+          fi
+          
+          echo " Waiting for app health (HTTP) to become ready..."
+          READY=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/api/health >/dev/null 2>&1; then
+              READY=1
+              echo " Health endpoint is responding."
+              break
+            fi
+            echo "...retry $i/30"
+            sleep 5
+          done
+          
+          if [ "$READY" -ne 1 ]; then
+            echo " Deployment did not become healthy in time.
+            if docker ps -a --format '{{.Names}}' | grep -q '^nitp-main adminportal$'; then
+              docker logs --tail 200 nitp-main-portal || true
+            fi
+            exit 1
+          fi
+          
+          echo " Pruning unused Docker resources (images/volumes/networks/containers not in use)..."
+          docker system prune -a --volumes -f
+          echo " Deployment complete and old artifacts pruned."

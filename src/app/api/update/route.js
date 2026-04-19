@@ -3,6 +3,9 @@ import { query } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
 import { invalidateProfileIfNeeded } from '@/lib/profileCache'
+import { invalidatePublicationsCache } from '@/lib/publicationsCache';
+import { PUBLICATION_TYPES } from '../../../lib/const'
+
 import { notice_sub_types } from '@/lib/const';
 export async function PUT(request) {
   try {
@@ -87,15 +90,16 @@ export async function PUT(request) {
 
 
 
-      const canUpdateNotice =
-        session.user.role === "SUPER_ADMIN" ||
-        (session.user.role === "ACADEMIC_ADMIN" &&
-          noticeData.notice_type === "academics") ||
-        (session.user.role === "DEPT_ADMIN" &&
-          noticeData.notice_type === "department" &&
-          noticeData.department === session.user.department);
-
-
+      const canUpdateNotice = 
+        session.user.role === 'SUPER_ADMIN' ||
+        (session.user.role === 'ACADEMIC_ADMIN' && noticeData.notice_type === 'academics') ||
+        (session.user.role === 'DEPT_ADMIN' && 
+         noticeData.notice_type === 'department' && 
+         noticeData.department === session.user.department) ||
+        (session.user.role === 'TENDER_NOTICE_ADMIN' && noticeData.notice_type === 'tender')
+      
+      console.log('Can update notice:', canUpdateNotice)
+      
       if (!canUpdateNotice) {
         return NextResponse.json(
           { message: "Not authorized to update notices" },
@@ -132,6 +136,7 @@ export async function PUT(request) {
           }
         }
       }
+
       const result = await query(
         `UPDATE notices SET 
             title = ?,
@@ -158,6 +163,7 @@ export async function PUT(request) {
             params.data.isVisible === undefined ? 1 : Number(params.data.isVisible),
             session.user.email,
             params.data.notice_type || null,
+            params.data.notice_sub_type||null,
             params.data.department || null,
             params.data.id
         ]
@@ -298,6 +304,7 @@ export async function PUT(request) {
               ]
             )
             await invalidateProfileIfNeeded(type, params);
+            
             return NextResponse.json(socialResult)
           } else {
             const {
@@ -344,6 +351,7 @@ export async function PUT(request) {
               ]
             )
             await invalidateProfileIfNeeded(type, params);
+            await invalidatePublicationsCache(null);
             return NextResponse.json(facultyResult)
           }
       }
@@ -467,6 +475,9 @@ export async function PUT(request) {
                 [params.id]
               );
               await invalidateProfileIfNeeded(type, params);
+              if (PUBLICATION_TYPES.includes(type)) {
+                await invalidatePublicationsCache(params.email);
+              }
               return NextResponse.json({
                 success: true,
                 message: 'Journal paper and collaborators updated successfully',
@@ -481,7 +492,7 @@ export async function PUT(request) {
               );
             }
           }
-        }
+        
 
         case "conference_papers":
           const conferenceResult = await query(
@@ -551,6 +562,9 @@ export async function PUT(request) {
             [params.id]
           )
           await invalidateProfileIfNeeded(type, params);
+          if (PUBLICATION_TYPES.includes(type)) {
+            await invalidatePublicationsCache(params.email);
+          }
           return NextResponse.json({ conference: conferencesWithCollaborators[0] || null })
 
           return NextResponse.json({
@@ -596,6 +610,9 @@ export async function PUT(request) {
             }
           }
           await invalidateProfileIfNeeded(type, params);
+          if (PUBLICATION_TYPES.includes(type)) {
+            await invalidatePublicationsCache(params.email);
+          }
           return NextResponse.json(textbookResult)
 
         case "edited_books":
@@ -689,6 +706,9 @@ export async function PUT(request) {
             }
           }
           await invalidateProfileIfNeeded(type, params);
+          if (PUBLICATION_TYPES.includes(type)) {
+            await invalidatePublicationsCache(params.email);
+          }
           return NextResponse.json(chapterResult)
 
         // Projects
