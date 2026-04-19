@@ -482,7 +482,7 @@ export async function PUT(request) {
               );
             }
           }
-        }
+        
 
         case "conference_papers":
           const conferenceResult = await query(
