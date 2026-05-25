@@ -17,6 +17,7 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import GroupIcon from '@mui/icons-material/Group'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
+import BusinessIcon from '@mui/icons-material/Business'
 import { ROLES } from '@/lib/roles'
 import { useFacultyData } from '@/context/FacultyDataContext'
 
@@ -127,7 +128,8 @@ const menuItems = {
     { text: 'News', href: '/news', icon: <NewspaperIcon /> },
     { text: 'Innovation', href: '/innovation', icon: <LightbulbIcon /> },
     { text: 'Faculty Management', href: '/faculty-management', icon: <GroupIcon /> },
-    { text: 'Role Management', href: '/role-management', icon: <AdminPanelSettingsIcon /> }
+    { text: 'Role Management', href: '/role-management', icon: <AdminPanelSettingsIcon /> },
+    { text: 'Club Management', href: '/club_management', icon: <AdminPanelSettingsIcon /> }
   ],
   [ROLES.ACADEMIC_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
@@ -152,6 +154,9 @@ const menuItems = {
   [ROLES.TENDER_NOTICE_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
     { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> }
+  ],
+  [ROLES.CLUB_ADMIN]: [
+    { text: 'Club Profile', href: '/', icon: <BusinessIcon /> }
   ]
 }
 

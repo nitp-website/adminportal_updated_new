@@ -124,6 +124,10 @@ const Copyright = styled.div`
   margin-right: -1rem;
   padding-left: 1rem;
   padding-right: 1rem;
+
+  p{
+    padding-bottom: 1rem;
+  }
 `
 
 export default function Footer() {

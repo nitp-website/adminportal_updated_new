@@ -238,12 +238,12 @@ export function FacultyTable() {
                     </TableBody>
         </Table>
       </TableContainer>
-                            <TablePagination
+      <TablePagination
         rowsPerPageOptions={[10, 25, 50]}
         component="div"
-                              count={hasSearch ? filteredRows.length : total}
-                                rowsPerPage={rowsPerPage}
-                                page={page}
+        count={hasSearch ? filteredRows.length : total}
+        rowsPerPage={rowsPerPage}
+        page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
       />
