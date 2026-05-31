@@ -99,6 +99,7 @@ export async function GET(request) {
               WHEN 5 THEN 'STAFF'
               WHEN 6 THEN 'DEPT_ADMIN'
               WHEN 7 THEN 'TENDER_NOTICE_ADMIN'
+              WHEN 8 THEN 'CLUB_ADMIN'
             END as role_name,
             ${subqueries.join(',\n    ')}
               FROM user u 

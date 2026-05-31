@@ -1,30 +1,10 @@
 "use client";
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  MenuItem,
-  Grid,
-  Typography,
-  Divider,
-  IconButton,
-} from "@mui/material";
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Grid, Typography, Divider, IconButton } from "@mui/material";
 import { Delete } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 
-const clubCategories = [
-  "Technical",
-  "Cultural",
-  "Sports",
-  "Literary",
-  "Social",
-  "Innovation",
-  "Academic",
-];
+const clubCategories = [ "Technical", "Cultural", "Sports", "Literary", "Social", "Innovation", "Academic" ];
 
 export function EditClub({ open, club, onClose, onSuccess, onDelete }) {
   const [loading, setLoading] = useState(false);
@@ -62,7 +42,7 @@ export function EditClub({ open, club, onClose, onSuccess, onDelete }) {
 
     try {
       if (onSuccess) {
-        onSuccess(formData);
+        await onSuccess(formData);
       }
     } finally {
       setLoading(false);

@@ -20,7 +20,7 @@ export const ROLE_NAMES = {
   8: 'Club Admin'
 }
 
-export const hasAccess = (userRole, userDepartment, requiredRole, requiredDepartment, userClubId, requireClubID) => {
+export const hasAccess = (userRole, userDepartment, requiredRole, requiredDepartment, userClubID, requireClubID) => {
   // Super Admin has access to everything
   if (userRole === ROLES.SUPER_ADMIN) return true
 
@@ -31,7 +31,7 @@ export const hasAccess = (userRole, userDepartment, requiredRole, requiredDepart
 
   //Clubs Admin can only access their respective Club
   if (userRole === ROLES.CLUB_ADMIN) {
-    return userClubId === requireClubID
+    return userClubID === requireClubID
   }
 
   // Academic Admin can access all department notices and academic notices

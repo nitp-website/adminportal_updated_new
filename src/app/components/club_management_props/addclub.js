@@ -1,18 +1,7 @@
 "use client";
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  MenuItem,
-  Grid,
-  Typography,
-  Divider,
-} from "@mui/material";
 import { useState } from "react";
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Grid, Typography, Divider } from "@mui/material";
 
 const emptyClub = {
   club_name: "",
@@ -44,7 +33,7 @@ export function AddClub({ open, onClose, onSuccess }) {
     setLoading(true);
 
     try {
-      onSuccess(formData);
+      await onSuccess(formData);
       setFormData(emptyClub);
     } finally {
       setLoading(false);

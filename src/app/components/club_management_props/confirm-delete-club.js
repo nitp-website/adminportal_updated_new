@@ -1,30 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Divider,
-  Grid,
-  Typography,
-} from "@mui/material";
-import {
-  Business,
-  Delete,
-  Email,
-  Group,
-  Person,
-  Warning,
-} from "@mui/icons-material";
+import { Alert, Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Grid, Typography } from "@mui/material";
+import { Business, Delete, Email, Group, Person, Warning } from "@mui/icons-material";
 
 export function ConfirmDeleteClub({ open, onClose, club, onConfirm }) {
   const [loading, setLoading] = useState(false);
@@ -33,7 +11,7 @@ export function ConfirmDeleteClub({ open, onClose, club, onConfirm }) {
     setLoading(true);
     try {
       if (onConfirm) {
-        onConfirm(club);
+        await onConfirm(club);
       }
     } finally {
       setLoading(false);

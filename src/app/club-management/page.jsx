@@ -2,7 +2,7 @@
 
 import Layout from '../components/layout'
 import styled from 'styled-components'
-import { ClubTable } from '../components/club-table'
+import { ClubTable } from '../components/club_management_props/club-table'
 
 import { useSession } from 'next-auth/react'
 
@@ -10,9 +10,7 @@ import Loading from '../components/loading'
 import Sign from '../components/signin'
 import Unauthorise from '../components/unauthorise'
 
-const Container = styled.div`
-  padding: 2rem;
-`
+const Container = styled.div`padding: 2rem;`
 
 export default function ClubManagement() {
   const { data: session, status } = useSession()

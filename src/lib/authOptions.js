@@ -31,6 +31,26 @@ export const authOptions = {
   
           const userData = results[0]
           const numericRole = parseInt(userData.role)
+
+          // Block inactive club accounts before creating a session.
+          if (numericRole === ROLES.CLUB_ADMIN) {
+            const clubs = await query(
+              `SELECT status FROM clubs
+               WHERE LOWER(club_email) = LOWER(?) OR LOWER(club_name) = LOWER(?)
+               LIMIT 1`,
+              [profile.email, userData.administration || '']
+            ).catch((error) => {
+              if (error.code === 'ER_NO_SUCH_TABLE' || error.message?.includes("doesn't exist")) {
+                return []
+              }
+              throw error
+            })
+
+            if (clubs.length > 0 && clubs[0].status === 'Inactive') {
+              return '/?signinError=ClubInactive'
+            }
+          }
+
           user.numericRole = numericRole 
           user.role = Object.keys(ROLES).find(key => ROLES[key] === numericRole)
           user.department = userData.department
@@ -69,8 +89,9 @@ export const authOptions = {
       }
     },
     pages: {
-      signIn: '/auth/signin',
-      error: '/auth/error',
+      // Keep all auth feedback on the existing sign-in screen.
+      signIn: '/',
+      error: '/',
     },
     secret: process.env.NEXTAUTH_SECRET,
     session: {

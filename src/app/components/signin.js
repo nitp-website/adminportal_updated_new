@@ -3,7 +3,7 @@
 import styled from 'styled-components'
 import Image from 'next/image'
 import { signIn } from 'next-auth/react'
-import { Button, Paper, Typography, Box } from '@mui/material'
+import { Alert, Button, Paper, Typography, Box } from '@mui/material'
 import { Google as GoogleIcon } from '@mui/icons-material'
 
 const SigninContainer = styled.div`
@@ -61,7 +61,14 @@ const StyledButton = styled(Button)`
   }
 `
 
-export default function Sign() {
+const signinErrorMessages = {
+  // Message shown when a club admin account is disabled.
+  ClubInactive: 'Your club login is currently inactive. Please contact the administrator.',
+}
+
+export default function Sign({ signinError }) {
+  const errorMessage = signinErrorMessages[signinError]
+
   return (
     <SigninContainer>
       <SigninCard elevation={0}>
@@ -84,10 +91,16 @@ export default function Sign() {
           </Typography>
         </Box>
 
+        {errorMessage && (
+          <Alert severity="error" sx={{ width: '100%' }}>
+            {errorMessage}
+          </Alert>
+        )}
+
         <StyledButton
           variant="contained"
           color="primary"
-          onClick={() => signIn('google')}
+          onClick={() => signIn('google', { callbackUrl: '/' })}
           startIcon={<GoogleIcon />}
         >
           Sign in with Google

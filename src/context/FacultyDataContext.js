@@ -52,6 +52,15 @@ export function FacultyDataProvider({ children }) {
       return
     }
 
+    // Skip faculty data fetch for non-faculty roles (CLUB_ADMIN, etc.)
+    const nonFacultyRoles = ['CLUB_ADMIN']
+    if (session?.user?.role && nonFacultyRoles.includes(session.user.role)) {
+      console.log('[FacultyDataContext] Skipping faculty data fetch for role:', session.user.role)
+      setFacultyData(null)
+      setLoading(false)
+      return
+    }
+
     const userEmail = session.user.email
     console.log('[FacultyDataContext] Initializing for user:', userEmail)
     

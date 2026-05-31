@@ -1,30 +1,15 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import {
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  IconButton,
-  Button,
-  TextField,
-  Box,
-  Typography,
-  Chip,
-} from '@mui/material'
+import { Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, IconButton, Button, TextField, Box, Typography, Chip, CircularProgress, Alert } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
-import { AddClub } from './club_management_props/addclub'
-import { EditClub } from './club_management_props/editclub'
-import { ConfirmDeleteClub } from './club_management_props/confirm-delete-club'
-import { readClubs, upsertClub, writeClubs } from './club-storage'
+import { AddClub } from './addclub'
+import { EditClub } from './editclub'
+import { ConfirmDeleteClub } from './confirm-delete-club'
+import { createClub, deleteClub, readClubs, updateClub } from '@/lib/clubs/club-storage'
 
 const columns = [
   { id: 'club_name', label: 'Club Name', minWidth: 190 },
@@ -47,9 +32,30 @@ export function ClubTable() {
   const [clubToDelete, setClubToDelete] = useState(null)
   const [nameSearch, setNameSearch] = useState('')
   const [emailSearch, setEmailSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    setRows(readClubs())
+    let mounted = true
+
+    async function loadClubs() {
+      try {
+        setLoading(true)
+        setError('')
+        const clubs = await readClubs()
+        if (mounted) setRows(clubs)
+      } catch (err) {
+        if (mounted) setError(err.message || 'Failed to load clubs')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    loadClubs()
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const filteredRows = useMemo(() => {
@@ -100,6 +106,11 @@ export function ClubTable() {
         <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
           Club Management
         </Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+            {error}
+          </Alert>
+        )}
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
           <TextField
             label="Search by Club Name"
@@ -149,7 +160,13 @@ export function ClubTable() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {visibleRows.length > 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={28} sx={{ color: '#830001' }} />
+                </TableCell>
+              </TableRow>
+            ) : visibleRows.length > 0 ? (
               visibleRows.map((row) => (
                 <TableRow hover tabIndex={-1} key={row.id}>
                   <TableCell>{row.club_name}</TableCell>
@@ -206,10 +223,14 @@ export function ClubTable() {
       <AddClub
         open={openAdd}
         onClose={() => setOpenAdd(false)}
-        onSuccess={(newClub) => {
-          const nextRows = upsertClub({ ...newClub, id: Date.now() })
-          setRows(nextRows)
-          setOpenAdd(false)
+        onSuccess={async (newClub) => {
+          try {
+            const savedClub = await createClub(newClub)
+            setRows((prev) => [...prev, savedClub].sort((a, b) => a.club_name.localeCompare(b.club_name)))
+            setOpenAdd(false)
+          } catch (err) {
+            setError(err.message || 'Failed to add club')
+          }
         }}
       />
 
@@ -221,11 +242,15 @@ export function ClubTable() {
             setOpenEdit(false)
             setSelectedClub(null)
           }}
-          onSuccess={(updatedClub) => {
-            const nextRows = upsertClub(updatedClub)
-            setRows(nextRows)
-            setOpenEdit(false)
-            setSelectedClub(null)
+          onSuccess={async (updatedClub) => {
+            try {
+              const savedClub = await updateClub(updatedClub)
+              setRows((prev) => prev.map((row) => (row.id === savedClub.id ? savedClub : row)))
+              setOpenEdit(false)
+              setSelectedClub(null)
+            } catch (err) {
+              setError(err.message || 'Failed to update club')
+            }
           }}
           onDelete={handleDeleteFromEdit}
         />
@@ -239,12 +264,15 @@ export function ClubTable() {
             setClubToDelete(null)
           }}
           club={clubToDelete}
-          onConfirm={(deletedClub) => {
-            const nextRows = rows.filter((row) => row.id !== deletedClub.id)
-            writeClubs(nextRows)
-            setRows(nextRows)
-            setOpenDelete(false)
-            setClubToDelete(null)
+          onConfirm={async (deletedClub) => {
+            try {
+              await deleteClub(deletedClub.id)
+              setRows((prev) => prev.filter((row) => row.id !== deletedClub.id))
+              setOpenDelete(false)
+              setClubToDelete(null)
+            } catch (err) {
+              setError(err.message || 'Failed to delete club')
+            }
           }}
         />
       )}

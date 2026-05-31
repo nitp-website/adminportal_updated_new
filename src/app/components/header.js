@@ -17,7 +17,7 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import GroupIcon from '@mui/icons-material/Group'
 import SettingsIcon from '@mui/icons-material/Settings'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
-import BusinessIcon from '@mui/icons-material/Business'
+import GroupsIcon from '@mui/icons-material/Groups'
 import { ROLES } from '@/lib/roles'
 import { useFacultyData } from '@/context/FacultyDataContext'
 
@@ -129,7 +129,7 @@ const menuItems = {
     { text: 'Innovation', href: '/innovation', icon: <LightbulbIcon /> },
     { text: 'Faculty Management', href: '/faculty-management', icon: <GroupIcon /> },
     { text: 'Role Management', href: '/role-management', icon: <AdminPanelSettingsIcon /> },
-    { text: 'Club Management', href: '/club_management', icon: <AdminPanelSettingsIcon /> }
+    { text: 'Club Management', href: '/club-management', icon: <GroupsIcon /> }
   ],
   [ROLES.ACADEMIC_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
@@ -156,7 +156,7 @@ const menuItems = {
     { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> }
   ],
   [ROLES.CLUB_ADMIN]: [
-    { text: 'Club Profile', href: '/', icon: <BusinessIcon /> }
+    { text: 'Club Profile', href: '/club-profile', icon: <GroupsIcon /> },
   ]
 }
 
@@ -216,7 +216,7 @@ export default function Header() {
   }
 
   const handleSignOut = () => {
-    signOut()
+    signOut({ callbackUrl: '/' })
   }
 
   const drawerList = () => (

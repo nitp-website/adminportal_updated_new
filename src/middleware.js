@@ -16,12 +16,27 @@ export async function middleware(request) {
 
   // Create response with CORS headers
   const response = NextResponse.next()
-  response.headers.set('Access-Control-Allow-Origin', '*')
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || request.headers.get('origin') || '*'
+  // Prefer explicit origin in production via ALLOWED_ORIGIN env var
+  response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  
+  // Enable credentialed CORS requests only for specific origins.
+  // Browsers do not allow Access-Control-Allow-Credentials with a wildcard (*) origin.
+  if (allowedOrigin !== '*') {
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+  }
 
   // Only check authentication for protected routes
   const { pathname } = request.nextUrl
+
+  // Support old sign-in URLs while rendering the root sign-in page.
+  if (pathname === '/auth/signin') {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = '/'
+    return NextResponse.redirect(redirectUrl)
+  }
   
   // Skip auth check for public API routes
   const publicRoutes = ['/api/auth', '/api/webteam', '/api/events/*','/api/notice/*','/api/faculty/*']
@@ -34,6 +49,17 @@ export async function middleware(request) {
   // Only perform token validation for non-public routes
   try {
     const token = await getToken({ req: request })
+
+    if (token) {
+      if (pathname.startsWith('/club-management') && token.role !== 'SUPER_ADMIN') {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+
+      if (pathname.startsWith('/club-profile') && token.role !== 'CLUB_ADMIN') {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+    }
+
     if (!token && pathname.startsWith('/api/')) {
       // Only return 401 for API routes that require auth
       const protectedApiRoutes = ['/api/create', '/api/update', '/api/delete', '/api/upload']
