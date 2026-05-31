@@ -9,8 +9,7 @@ export function normalizeClub(club = {}) {
     title: club.title || club.club_name || '',
     club_email: club.club_email || '',
     category: club.category || '',
-    club_pi: club.club_pi || club.patnaPiName || '',
-    patnaPiName: club.patnaPiName || club.club_pi || '',
+    // `club_pi` deprecated; prefer explicit patna PI fields
     club_president: club.club_president || '',
     club_secretary: club.club_secretary || '',
     status: club.status || 'Active',
@@ -18,7 +17,7 @@ export function normalizeClub(club = {}) {
     description: club.description || '',
     logo_url: club.logo_url || '',
     banners,
-    patnaPiName: club.patnaPiName || club.patna_pi_name || club.club_pi || '',
+    patnaPiName: club.patnaPiName || club.patna_pi_name || '',
     patnaPiEmail: club.patnaPiEmail || club.patna_pi_email || '',
     patnaPiPhone: club.patnaPiPhone || club.patna_pi_phone || '',
     patnaPiDepartment: club.patnaPiDepartment || club.patna_pi_department || '',

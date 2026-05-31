@@ -1,5 +1,5 @@
 import { CLUB_CATEGORIES, EMAIL_PATTERN, PHONE_PATTERN } from './club-constants'
-import { normalizeClub } from './club-db'
+import { normalizeClub } from './club-db';
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : ''
@@ -27,7 +27,7 @@ function isValidUrl(value) {
 
 export function buildClubPayload(data = {}) {
   const club = normalizeClub(data)
-  const patnaPiName = cleanString(data.patnaPiName ?? data.patna_pi_name ?? data.club_pi ?? '')
+  const patnaPiName = cleanString(data.patnaPiName ?? data.patna_pi_name ?? '')
   const patnaPiEmail = cleanString(data.patnaPiEmail ?? data.patna_pi_email ?? '')
   const patnaPiPhone = cleanString(data.patnaPiPhone ?? data.patna_pi_phone ?? '')
   const patnaPiDepartment = cleanString(data.patnaPiDepartment ?? data.patna_pi_department ?? '')
@@ -41,7 +41,7 @@ export function buildClubPayload(data = {}) {
     club_name: cleanString(club.club_name),
     club_email: cleanString(club.club_email).toLowerCase(),
     category: cleanNullableString(club.category),
-    club_pi: cleanNullableString(club.club_pi || patnaPiName),
+    // `club_pi` deprecated — store Patna PI explicitly
     club_president: cleanNullableString(club.club_president),
     club_secretary: cleanNullableString(club.club_secretary),
     status,
@@ -65,7 +65,7 @@ export function preserveMissingClubPayloadFields(payload, existingClub, data = {
     club_name: ['club_name', 'title'],
     club_email: ['club_email'],
     category: ['category'],
-    club_pi: ['club_pi', 'patnaPiName', 'patna_pi_name'],
+    // removed club_pi mapping; use patna_pi_name instead
     club_president: ['club_president'],
     club_secretary: ['club_secretary'],
     status: ['status'],
@@ -87,7 +87,7 @@ export function preserveMissingClubPayloadFields(payload, existingClub, data = {
     club_name: existingClub.club_name,
     club_email: existingClub.club_email,
     category: existingClub.category,
-    club_pi: existingClub.club_pi,
+    // club_pi removed; preserve patna fields instead
     club_president: existingClub.club_president,
     club_secretary: existingClub.club_secretary,
     status: existingClub.status,
@@ -134,7 +134,7 @@ export function validateClubPayload(payload, { requireCategory = false } = {}) {
     ['club_name', 255, 'Club name'],
     ['club_email', 255, 'Club email'],
     ['category', 100, 'Category'],
-    ['club_pi', 255, 'Club PI'],
+    // removed club_pi length check; use patna_pi_name
     ['club_president', 255, 'Club president'],
     ['club_secretary', 255, 'Club secretary'],
     ['patna_pi_name', 255, 'Patna PI name'],

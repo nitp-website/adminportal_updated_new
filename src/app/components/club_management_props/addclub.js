@@ -7,7 +7,7 @@ const emptyClub = {
   club_name: "",
   club_email: "",
   category: "",
-  club_pi: "",
+  patnaPiName: "",
   club_president: "",
   club_secretary: "",
   status: "Active",
@@ -166,16 +166,16 @@ export function AddClub({ open, onClose, onSuccess }) {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Club PI"
-                  value={formData.club_pi}
+                  label="Patna PI"
+                  value={formData.patnaPiName}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      club_pi: e.target.value,
+                      patnaPiName: e.target.value,
                     }))
                   }
                   variant="outlined"
-                  placeholder="Enter club PI..."
+                  placeholder="Enter Patna PI..."
                 />
               </Grid>
               <Grid item xs={12} sm={6}>

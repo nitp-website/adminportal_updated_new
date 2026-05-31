@@ -19,7 +19,7 @@ export function mapClubToFormData(club) {
     title: club.title,
     about: club.about,
     description: club.description,
-    patnaPiName: club.patnaPiName || club.club_pi || '',
+    patnaPiName: club.patnaPiName || club.patna_pi_name || '',
     patnaPiEmail: club.patnaPiEmail || '',
     patnaPiPhone: club.patnaPiPhone || '',
     patnaPiDepartment: club.patnaPiDepartment || '',

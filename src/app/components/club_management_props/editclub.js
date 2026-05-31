@@ -13,7 +13,7 @@ export function EditClub({ open, club, onClose, onSuccess, onDelete }) {
     club_name: "",
     club_email: "",
     category: "",
-    club_pi: "",
+    patnaPiName: "",
     club_president: "",
     club_secretary: "",
     status: "Active",
@@ -27,7 +27,7 @@ export function EditClub({ open, club, onClose, onSuccess, onDelete }) {
         club_name: club.club_name || "",
         club_email: club.club_email || "",
         category: club.category || "",
-        club_pi: club.club_pi || "",
+        patnaPiName: club.patnaPiName || club.patna_pi_name || "",
         club_president: club.club_president || "",
         club_secretary: club.club_secretary || "",
         status: club.status || "Active",
@@ -199,12 +199,12 @@ export function EditClub({ open, club, onClose, onSuccess, onDelete }) {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Club PI"
-                  value={formData.club_pi}
+                  label="Patna PI"
+                  value={formData.patnaPiName}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      club_pi: e.target.value,
+                      patnaPiName: e.target.value,
                     }))
                   }
                   variant="outlined"

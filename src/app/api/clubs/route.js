@@ -33,11 +33,27 @@ function serverError(label, error) {
   return NextResponse.json({ message: error.message }, { status: 500 })
 }
 
+async function verifyClubAdminIsActive(session) {
+  if (session?.user?.role !== 'CLUB_ADMIN') {
+    return null
+  }
+
+  const club = await findClubForSession(session)
+  if (club?.status === 'Inactive') {
+    return NextResponse.json({ message: 'Your club is inactive' }, { status: 403 })
+  }
+
+  return null
+}
+
 export async function GET(request) {
   try {
     await ensureClubTable()
 
     const session = await getServerSession(authOptions)
+    const statusCheckResponse = await verifyClubAdminIsActive(session)
+    if (statusCheckResponse) return statusCheckResponse
+
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page')) || 1)
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit')) || 20))
@@ -125,7 +141,12 @@ export async function POST(request) {
     }
 
     const club = await insertClub(payload)
-    await syncClubAdminUser(club)
+    try {
+      await syncClubAdminUser(club)
+    } catch (error) {
+      await deleteClubById(club.id)
+      throw new Error(`Failed to create admin user: ${error.message}`)
+    }
 
     return NextResponse.json(club, { status: 201 })
   } catch (error) {
@@ -141,6 +162,9 @@ export async function PUT(request) {
     }
 
     await ensureClubTable()
+
+    const statusCheckResponse = await verifyClubAdminIsActive(session)
+    if (statusCheckResponse) return statusCheckResponse
 
     const body = await request.json()
     let payload = buildClubPayload(body)
@@ -222,10 +246,17 @@ export async function DELETE(request) {
 
     const result = await deleteClubById(id)
     if (result.affectedRows === 0) {
-      return NextResponse.json({ message: 'Club not found' }, { status: 404 })
+      console.error(`[Club DELETE] Club record present but delete affected 0 rows for id=${id}, actor=${session.user.email}`)
+      return NextResponse.json({ message: 'Failed to delete club' }, { status: 500 })
     }
 
-    await deleteClubAdminUserByEmail(club.club_email)
+    console.log(`[Club DELETE] Club ${club.club_email || club.club_name} deleted by ${session.user.email}`)
+
+    try {
+      await deleteClubAdminUserByEmail(club.club_email)
+    } catch (cleanupError) {
+      console.error(`[Club DELETE] Club deleted but failed to remove admin user for ${club.club_email}:`, cleanupError)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

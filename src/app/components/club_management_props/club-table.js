@@ -15,7 +15,7 @@ const columns = [
   { id: 'club_name', label: 'Club Name', minWidth: 190 },
   { id: 'club_email', label: 'Club Email', minWidth: 220 },
   { id: 'category', label: 'Category', minWidth: 160 },
-  { id: 'club_pi', label: 'Club PI', minWidth: 180 },
+  { id: 'patnaPiName', label: 'Patna PI', minWidth: 180 },
   { id: 'club_president', label: 'Club President', minWidth: 180 },
   { id: 'status', label: 'Status', minWidth: 120 },
   { id: 'actions', label: 'Actions', minWidth: 160 },
@@ -172,7 +172,7 @@ export function ClubTable() {
                   <TableCell>{row.club_name}</TableCell>
                   <TableCell>{row.club_email}</TableCell>
                   <TableCell>{row.category || 'N/A'}</TableCell>
-                  <TableCell>{row.club_pi || 'N/A'}</TableCell>
+                  <TableCell>{row.patnaPiName || row.patna_pi_name || 'N/A'}</TableCell>
                   <TableCell>{row.club_president || 'N/A'}</TableCell>
                   <TableCell>
                     <Chip

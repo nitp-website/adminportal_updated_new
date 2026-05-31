@@ -7,6 +7,9 @@ import { useSearchParams } from 'next/navigation'
 import { deleteS3File, extractS3KeyFromUrl, replaceFileInS3, uploadFileToS3 } from '@/lib/utils'
 import { findClubForSession, normalizeClub, updateClub } from '../../lib/clubs/club-storage'
 import ClubBannersSection from './club_profile_props/club-banners-section'
+
+const MAX_LOGO_SIZE = 5 * 1024 * 1024 // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 import ClubIdentitySection from './club_profile_props/club-identity-section'
 import ClubProfileHeader from './club_profile_props/club-profile-header'
 import ProfessorInChargeSection from './club_profile_props/professor-in-charge-section'
@@ -100,6 +103,18 @@ export default function ClubProfile() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    if (file.size > MAX_LOGO_SIZE) {
+      setError('Logo must be smaller than 5MB')
+      event.target.value = ''
+      return
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError('Logo must be JPEG, PNG, or WebP')
+      event.target.value = ''
+      return
+    }
+
     if (logo?.url) {
       URL.revokeObjectURL(logo.url)
     }
@@ -183,7 +198,7 @@ export default function ClubProfile() {
         club_email: clubEmail || session?.user?.email || '',
         category,
         status,
-        club_pi: formData.patnaPiName,
+        // store Patna PI explicitly
         club_president: clubPresident,
         club_secretary: clubSecretary,
         about: formData.about,

@@ -3,7 +3,6 @@ export const CLUB_COLUMNS = `
   club_name,
   club_email,
   category,
-  club_pi,
   club_president,
   club_secretary,
   status,
@@ -33,6 +32,6 @@ export const CLUB_CATEGORIES = new Set([
   'Academic',
 ])
 
-export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-export const PHONE_PATTERN = /^[0-9+\-\s()]{7,20}$/
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/
+export const PHONE_PATTERN = /^(?:\+91[\s-]?)?[6-9]\d[\s-]?\d{4}[\s-]?\d{4}$/
 

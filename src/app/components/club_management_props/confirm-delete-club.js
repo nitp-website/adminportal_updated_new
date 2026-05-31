@@ -141,7 +141,7 @@ export function ConfirmDeleteClub({ open, onClose, club, onConfirm }) {
                   </Typography>
                 </Box>
                 <Typography variant="body2" sx={{ fontWeight: 500, ml: 3 }}>
-                  {club.club_pi || "No PI specified"}
+                  {club.patnaPiName || club.patna_pi_name || "No PI specified"}
                 </Typography>
               </Grid>
 

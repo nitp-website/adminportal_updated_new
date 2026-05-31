@@ -46,7 +46,13 @@ export const authOptions = {
               throw error
             })
 
-            if (clubs.length > 0 && clubs[0].status === 'Inactive') {
+            // Club doesn't exist
+            if (clubs.length === 0) {
+              return '/?signinError=ClubNotFound'
+            }
+            
+            // Club is inactive
+            if (clubs[0].status === 'Inactive') {
               return '/?signinError=ClubInactive'
             }
           }
