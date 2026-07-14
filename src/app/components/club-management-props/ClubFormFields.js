@@ -65,6 +65,7 @@ export function ClubFormFields({ formData, onChange, showExtended = false, super
               type="email"
               value={formData.email}
               onChange={handle('email')}
+              helperText="Do not use an email registered for another role (e.g., Faculty)."
             />
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -107,6 +108,7 @@ export function ClubFormFields({ formData, onChange, showExtended = false, super
             type="email"
             value={formData.email}
             onChange={handle('email')}
+            helperText="Do not use an email registered for another role (e.g., Faculty)."
           />
         </Grid>
         <Grid item xs={12} sm={6}>
