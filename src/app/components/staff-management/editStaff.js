@@ -31,6 +31,7 @@ const emptyForm = {
   // staff table
   employee_code: "",
   date_of_joining: "",
+  date_of_birth : "",
   cadre: "",
   department: "",
   designation: "",
@@ -91,6 +92,7 @@ export function EditStaff({ open, faculty, onClose, onSuccess, onDelete }) {
 
       employee_code: faculty.employee_code || "",
       date_of_joining: (faculty.date_of_joining || "").toString().split("T")[0] || "",
+      date_of_birth: (faculty.date_of_birth || "").toString().split("T")[0] || "",
       cadre: faculty.cadre || "",
       department: faculty.department || "",
       designation: faculty.designation || "",
@@ -111,6 +113,7 @@ export function EditStaff({ open, faculty, onClose, onSuccess, onDelete }) {
           name: formData.name,
           employee_code: formData.employee_code,
           date_of_joining: formData.date_of_joining,
+          date_of_birth : formData.date_of_birth || null,
           cadre: formData.cadre,
           department: formData.department,
           designation: formData.designation,
@@ -249,6 +252,20 @@ export function EditStaff({ open, faculty, onClose, onSuccess, onDelete }) {
                     value={formData.date_of_joining}
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, date_of_joining: e.target.value }))
+                    }
+                    InputLabelProps={{ shrink: true }}
+                    variant="outlined"
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="date"
+                    label="Date of Birth"
+                    value={formData.date_of_birth}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, date_of_birth: e.target.value }))
                     }
                     InputLabelProps={{ shrink: true }}
                     variant="outlined"

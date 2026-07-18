@@ -71,10 +71,25 @@ export const StaffdepList = new Map([
   ['phy', 'Applied Physics and Material Engineering'],
   ['mae', 'Mechatronics and Automation Engineering'],
   ['mse', 'Materials Science and Engineering'],
+  ['sup', 'Supporting Staff'],
+  ['min', 'Ministerial Staff'],
   ['ccis', 'CCIS'],
   ['mis', 'MIS'],
   ['esu', 'Estate Service Unit'],
-  ['emu', 'Estate Maintainance Unit']
+  ['emu', 'Estate Maintenance  Unit'],
+  ['acd', 'Academic Section'],
+  ['est', 'Establishment Section'],
+  ['sw', 'Student Welfare Section'],
+  ['tnp', 'Training and Placement Section'],
+  ['reg', 'Registrar Office Section'],
+  ['dir', 'Director Office Section'],
+  ['pro', 'Procurement Section'],
+  ['exam', 'Exam Section'],
+  ['acc', 'Account Section'],
+  ['fac','Faculty Welfare Section'],
+  [ 'rnc', 'Research and Consultancy Section'],
+  ['pnd', 'Planning and Development Section'],
+  ['erp', 'ERP Section']
 ])
 
 export function getDeptFullName(code) {
