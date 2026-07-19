@@ -1,86 +1,183 @@
-name:  Docker Hub Build & Deploy
+name: 🚀 Build & Deploy Admin Portal
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: nitp-admin-portal
+  CONTAINER_NAME: nitp-admin-portal
+  APP_DIR: /nitp-admin-panel
+
 jobs:
-  build-and-push:
+  build-and-deploy:
+
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name:  Checkout Code
-      uses: actions/checkout@v4
 
-    - name:  Show deployment info
-      run: |
+      ############################################################
+      # Checkout
+      ############################################################
 
-    - name:  Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name:  Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME_Aashish }}
-        password: ${{ secrets.DOCKERHUB_Password_Aashish }}
+      ############################################################
+      # Docker Buildx
+      ############################################################
 
-    - name:  Extract metadata for Docker
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKERHUB_USERNAME_Aashish }}/nitp-admin-portal
-        tags: |
-          type=raw,value=latest
-          type=sha,prefix=
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name:  Build and push
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      ############################################################
+      # Docker Login
+      ############################################################
 
-    - name:  Deploy to Server & prune on success
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.SERVER_PORT || 22 }}
-        script: |
-          set -e
-          echo "Connected to server"
-          
-          if [ -x ./run-admin-nitp.sh ]; then
-            ./run-admin-nitp.sh
-          else
-            echo " run-admin-nitp.sh not found or not executable; proceeding without it"
-          fi
-          
-          echo " Waiting for app health (HTTP) to become ready..."
-          READY=0
-          for i in $(seq 1 30); do
-            if curl -fsS http://localhost:3000/api/health >/dev/null 2>&1; then
-              READY=1
-              echo " Health endpoint is responding."
-              break
-            fi
-            echo "...retry $i/30"
-            sleep 5
-          done
-          
-          if [ "$READY" -ne 1 ]; then
-            echo " Deployment did not become healthy in time.
-            if docker ps -a --format '{{.Names}}' | grep -q '^nitp-main adminportal$'; then
-              docker logs --tail 200 nitp-main-portal || true
-            fi
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      ############################################################
+      # Metadata
+      ############################################################
+
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/nitp-admin-portal
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      ############################################################
+      # Build Image
+      ############################################################
+
+      - name: Build & Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      ############################################################
+      # SSH Deployment
+      ############################################################
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+
+          script: |
+
+            set -e
+
+            echo "==============================="
+            echo "Preparing deployment folder..."
+            echo "==============================="
+
+            mkdir -p /nitp-admin-panel
+
+            ##################################################
+            # Generate .env
+            ##################################################
+
+            cat > /nitp-admin-panel/.env <<EOF
+
+            NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+            URL=${{ secrets.URL }}
+            DOMAIN=${{ secrets.DOMAIN }}
+
+            NEXT_GOOGLE_ID=${{ secrets.NEXT_GOOGLE_ID }}
+            NEXT_GOOGLE_SECRET=${{ secrets.NEXT_GOOGLE_SECRET }}
+
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+
+            MYSQL_HOST=${{ secrets.MYSQL_HOST }}
+            MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+            MYSQL_USERNAME=${{ secrets.MYSQL_USERNAME }}
+            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+            MYSQL_PORT=${{ secrets.MYSQL_PORT }}
+
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
+
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_DB=${{ secrets.REDIS_DB }}
+
+            TOKEN_PATH=${{ secrets.TOKEN_PATH }}
+            FOLDER_ID=${{ secrets.FOLDER_ID }}
+
+            BROADCAST_EMAIL=${{ secrets.BROADCAST_EMAIL }}
+            BROADCAST_EMAIL_PASS=${{ secrets.BROADCAST_EMAIL_PASS }}
+
+            REDIRECT_URIS=${{ secrets.REDIRECT_URIS }}
+
+            GOOGLE_DRIVE_CREDENTIALS='${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}'
+            GOOGLE_DRIVE_FOLDER_ID=${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+
+            NODE_ENV=production
+
+            EOF
+
+            chmod 600 /nitp-admin-panel/.env
+
+            echo "Environment file created."
+
+            ##################################################
+            # Deploy
+            ##################################################
+
+            chmod +x /nitp-admin-panel/deploy.sh
+
+            /nitp-admin-panel/deploy.sh
+
+            ##################################################
+            # Health Check
+            ##################################################
+
+            echo ""
+            echo "Waiting for application..."
+
+            for i in {1..30}
+            do
+
+              if curl -fs http://localhost:3000/api/health >/dev/null
+              then
+                echo ""
+                echo "Application Healthy"
+                exit 0
+              fi
+
+              echo "Retry $i / 30"
+
+              sleep 5
+
+            done
+
+            echo ""
+            echo "Application failed to start."
+
+            docker logs nitp-admin-portal
+
             exit 1
-          fi
-          
-          echo " Pruning unused Docker resources (images/volumes/networks/containers not in use)..."
-          docker system prune -a --volumes -f
-          echo " Deployment complete and old artifacts pruned."

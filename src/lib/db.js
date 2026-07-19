@@ -1,8 +1,24 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-// Create a connection pool with optimized settings
-const pool = mysql.createPool({
+function hasRequiredMysqlEnv() {
+  return Boolean(
+    process.env.MYSQL_HOST &&
+    process.env.MYSQL_DATABASE &&
+    process.env.MYSQL_USERNAME &&
+    process.env.MYSQL_PASSWORD &&
+    process.env.MYSQL_PORT
+  );
+}
+
+function ensureMysqlConfig() {
+  if (!hasRequiredMysqlEnv()) {
+    throw new Error('Missing one or more required MySQL environment variables.');
+  }
+}
+
+// Create a connection pool with optimized settings only when the required variables are present.
+const pool = hasRequiredMysqlEnv() ? mysql.createPool({
   host: process.env.MYSQL_HOST,
   database: process.env.MYSQL_DATABASE,
   user: process.env.MYSQL_USERNAME,
@@ -32,31 +48,22 @@ const pool = mysql.createPool({
   // Connection health check
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-});
+}) : null;
 
-// Validate environment variables at startup
-if (
-  !process.env.MYSQL_HOST ||
-  !process.env.MYSQL_DATABASE ||
-  !process.env.MYSQL_USERNAME ||
-  !process.env.MYSQL_PASSWORD ||
-  !process.env.MYSQL_PORT
-) {
-  throw new Error('Missing one or more required MySQL environment variables.');
+if (pool) {
+  // Connection pool event listeners for monitoring
+  pool.on('connection', (connection) => {
+    console.log(`[DB] New connection established as id ${connection.threadId}`);
+  });
+
+  pool.on('enqueue', () => {
+    console.log('[DB] Waiting for available connection slot');
+  });
+
+  pool.on('error', (err) => {
+    console.error('[DB] Pool error:', err);
+  });
 }
-
-// Connection pool event listeners for monitoring
-pool.on('connection', (connection) => {
-  console.log(`[DB] New connection established as id ${connection.threadId}`);
-});
-
-pool.on('enqueue', () => {
-  console.log('[DB] Waiting for available connection slot');
-});
-
-pool.on('error', (err) => {
-  console.error('[DB] Pool error:', err);
-});
 
 // Cache for prepared statements
 const stmtCache = new Map();
@@ -68,6 +75,8 @@ const stmtCache = new Map();
  * @returns {Promise<any>} - The query result.
  */
 async function query(q, values = []) {
+  ensureMysqlConfig();
+
   let connection;
   try {
     const startTime = Date.now();
@@ -116,6 +125,8 @@ async function query(q, values = []) {
  * @returns {Promise<Array>} - Array of results
  */
 async function batchQuery(queries) {
+  ensureMysqlConfig();
+
   let connection;
   try {
     const startTime = Date.now();
@@ -151,6 +162,8 @@ async function batchQuery(queries) {
  * @returns {Promise<Array>} - Array of results
  */
 async function transaction(queries) {
+  ensureMysqlConfig();
+
   let connection;
   try {
     connection = await pool.getConnection();
@@ -199,8 +212,15 @@ async function parallel(queries) {
  * @returns {Object} - Pool statistics
  */
 function getPoolStats() {
-  return {
+  if (!pool) {
+    return {
+      activeConnections: 0,
+      availableConnections: 0,
+      queuedRequests: 0
+    };
+  }
 
+  return {
     activeConnections: pool._allConnections ? pool._allConnections.length : 0,
     availableConnections: pool._freeConnections ? pool._freeConnections.length : 0,
     queuedRequests: pool._connectionQueue ? pool._connectionQueue.length : 0
@@ -212,6 +232,10 @@ function getPoolStats() {
  * Use this explicitly when shutting down the application.
  */
 async function closePool() {
+  if (!pool) {
+    return;
+  }
+
   try {
     await pool.end();
     console.log('[DB] Connection pool closed');
