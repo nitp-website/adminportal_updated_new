@@ -168,6 +168,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'A club with this email already exists' }, { status: 400 })
     }
 
+    const existingUser = await query('SELECT role FROM user WHERE email = ? LIMIT 1', [normalizedEmail])
+    if (existingUser.length > 0 && parseInt(existingUser[0].role) !== ROLES.CLUB_ADMIN) {
+      return NextResponse.json(
+        { error: 'This email is already registered to a user with a different role (e.g., Faculty, Admin).' },
+        { status: 400 }
+      )
+    }
+
     const loginId = await resolveUniqueClubLoginId(name, club_login_id)
 
     const result = await query(
@@ -242,6 +250,14 @@ export async function PUT(request) {
       ])
       if (dup.length) {
         return NextResponse.json({ error: 'A club with this email already exists' }, { status: 400 })
+      }
+
+      const existingUser = await query('SELECT role FROM user WHERE email = ? LIMIT 1', [fields.email])
+      if (existingUser.length > 0 && parseInt(existingUser[0].role) !== ROLES.CLUB_ADMIN) {
+        return NextResponse.json(
+          { error: 'This email is already registered to a user with a different role (e.g., Faculty, Admin).' },
+          { status: 400 }
+        )
       }
     }
 

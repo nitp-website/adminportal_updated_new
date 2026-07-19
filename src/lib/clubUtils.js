@@ -31,6 +31,69 @@ export function stringifyJsonField(value) {
   return JSON.stringify(value)
 }
 
+export function createEmptySession() {
+  return {
+    patna: {
+      pi: { name: '', email: '', department: '', contact: '', avatar: '' },
+      president: { name: '', email: '', department: '', contact: '', avatar: '' },
+      vice_president: { name: '', email: '', department: '', contact: '', avatar: '' },
+      secretary: { name: '', email: '', department: '', contact: '', avatar: '' },
+      joint_secretary_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+      joint_secretary_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+      coordinator_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+      coordinator_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+    },
+    bihta: {
+      pi: { name: '', email: '', department: '', contact: '', avatar: '' },
+      president: { name: '', email: '', department: '', contact: '', avatar: '' },
+      vice_president: { name: '', email: '', department: '', contact: '', avatar: '' },
+      secretary: { name: '', email: '', department: '', contact: '', avatar: '' },
+      joint_secretary_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+      joint_secretary_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+      coordinator_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+      coordinator_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+    }
+  }
+}
+
+export function normalizeSessionMembers(members) {
+  if (!members || typeof members !== 'object') return {};
+  const normalized = {};
+  for (const sessionKey of Object.keys(members)) {
+    const session = members[sessionKey] || {};
+    if (session.patna && session.bihta) {
+      normalized[sessionKey] = {
+        patna: { ...createEmptySession().patna, ...session.patna },
+        bihta: { ...createEmptySession().bihta, ...session.bihta },
+      };
+    } else {
+      normalized[sessionKey] = {
+        patna: {
+          pi: session.patna_campus_pi || { name: '', email: '', department: '', contact: '', avatar: '' },
+          president: session.president || { name: '', email: '', department: '', contact: '', avatar: '' },
+          vice_president: { name: '', email: '', department: '', contact: '', avatar: '' },
+          secretary: session.secretary || { name: '', email: '', department: '', contact: '', avatar: '' },
+          joint_secretary_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+          joint_secretary_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+          coordinator_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+          coordinator_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+        },
+        bihta: {
+          pi: session.bihta_campus_pi || { name: '', email: '', department: '', contact: '', avatar: '' },
+          president: { name: '', email: '', department: '', contact: '', avatar: '' },
+          vice_president: { name: '', email: '', department: '', contact: '', avatar: '' },
+          secretary: { name: '', email: '', department: '', contact: '', avatar: '' },
+          joint_secretary_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+          joint_secretary_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+          coordinator_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+          coordinator_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+        }
+      };
+    }
+  }
+  return normalized;
+}
+
 export function formatClubRow(row) {
   if (!row) return row
   const formatted = {
@@ -38,8 +101,8 @@ export function formatClubRow(row) {
     pictures: parseJsonField(row.pictures, []),
     patna_campus_pi: parseJsonField(row.patna_campus_pi, null),
     bihta_campus_pi: parseJsonField(row.bihta_campus_pi, null),
-    social_links: parseJsonField(row.social_links, { website: '', linkedin: '', instagram: '', twitter: '' }),
-    members: parseJsonField(row.sessions, {}),
+    social_links: { website: '', linkedin: '', instagram: '', twitter: '', youtube: '', facebook: '', ...parseJsonField(row.social_links, {}) },
+    members: normalizeSessionMembers(parseJsonField(row.sessions, {})),
   }
   delete formatted.sessions
   delete formatted.description
@@ -58,17 +121,17 @@ export function getClubPiName(club) {
     const sessionKeys = Object.keys(club.members).sort().reverse()
     if (sessionKeys.length > 0) {
       const latest = club.members[sessionKeys[0]]
-      const patna = latest?.patna_campus_pi
-      const bihta = latest?.bihta_campus_pi
-      if (patna?.name) return patna.name
+      const bihta = latest?.bihta?.pi || latest?.bihta_campus_pi
+      const patna = latest?.patna?.pi || latest?.patna_campus_pi
       if (bihta?.name) return bihta.name
+      if (patna?.name) return patna.name
     }
   }
   // Fallback to legacy fields if present
-  const patna = club?.patna_campus_pi
   const bihta = club?.bihta_campus_pi
-  if (patna?.name) return patna.name
+  const patna = club?.patna_campus_pi
   if (bihta?.name) return bihta.name
+  if (patna?.name) return patna.name
   return '—'
 }
 

@@ -40,7 +40,7 @@ export async function GET(request) {
 
     // 1. PUBLIC: Fetch ALL clubs
     if (type === 'all') {
-      const rows = await query('SELECT * FROM clubs');
+      const rows = await query('SELECT * FROM clubs ORDER BY name ASC');
       const formatted = rows.map(formatClubRow).map(c => ({
         id: c.id,
         name: c.name,
@@ -158,10 +158,17 @@ export async function PUT(request) {
       const sessionKeys = Object.keys(existing.members).sort().reverse()
       if (sessionKeys.length > 0) {
         const latest = existing.members[sessionKeys[0]]
-        if (latest.patna_campus_pi) patnaPi = latest.patna_campus_pi
-        if (latest.bihta_campus_pi) bihtaPi = latest.bihta_campus_pi
-        if (latest.president?.name) president = latest.president.name
-        if (latest.secretary?.name) secretary = latest.secretary.name
+        if (latest.patna?.pi) patnaPi = latest.patna.pi
+        else if (latest.patna_campus_pi) patnaPi = latest.patna_campus_pi
+
+        if (latest.bihta?.pi) bihtaPi = latest.bihta.pi
+        else if (latest.bihta_campus_pi) bihtaPi = latest.bihta_campus_pi
+
+        if (latest.patna?.president?.name) president = latest.patna.president.name
+        else if (latest.president?.name) president = latest.president.name
+
+        if (latest.patna?.secretary?.name) secretary = latest.patna.secretary.name
+        else if (latest.secretary?.name) secretary = latest.secretary.name
       }
     }
 
@@ -169,10 +176,17 @@ export async function PUT(request) {
       const sessionsKeys = Object.keys(members).sort().reverse()
       if (sessionsKeys.length > 0) {
         const latestSession = members[sessionsKeys[0]]
-        if (latestSession.patna_campus_pi) patnaPi = latestSession.patna_campus_pi
-        if (latestSession.bihta_campus_pi) bihtaPi = latestSession.bihta_campus_pi
-        if (latestSession.president?.name) president = latestSession.president.name
-        if (latestSession.secretary?.name) secretary = latestSession.secretary.name
+        if (latestSession.patna?.pi) patnaPi = latestSession.patna.pi
+        else if (latestSession.patna_campus_pi) patnaPi = latestSession.patna_campus_pi
+
+        if (latestSession.bihta?.pi) bihtaPi = latestSession.bihta.pi
+        else if (latestSession.bihta_campus_pi) bihtaPi = latestSession.bihta_campus_pi
+
+        if (latestSession.patna?.president?.name) president = latestSession.patna.president.name
+        else if (latestSession.president?.name) president = latestSession.president.name
+
+        if (latestSession.patna?.secretary?.name) secretary = latestSession.patna.secretary.name
+        else if (latestSession.secretary?.name) secretary = latestSession.secretary.name
       }
     }
 
