@@ -18,7 +18,7 @@ import { Add, Delete } from "@mui/icons-material";
 import { useSession } from "next-auth/react";
 import React, { useEffect, useState } from "react";
 import { useStaffData } from "../../../context/StaffDataContext";
-import { getDeptFullName } from "@/lib/const";
+import { StaffdepList, getDeptFullName } from "@/lib/const";
 
 const safeParse = (value, fallback) => {
   if (value == null) return fallback;
@@ -74,6 +74,7 @@ export const EditProfile = ({
     // staff table
     employee_code: profile?.employee_code || "",
     date_of_joining: toDateInput(profile?.date_of_joining),
+    date_of_birth: toDateInput(profile?.date_of_birth),
     cadre: profile?.cadre || "",
     department: profile?.department || "",
     designation: profile?.designation || "",
@@ -275,6 +276,7 @@ export const EditProfile = ({
 
           employee_code: formData.employee_code,
           date_of_joining: formData.date_of_joining || null,
+          date_of_birth: formData.date_of_birth || null,
           cadre: formData.cadre,
           department: formData.department,
           designation: formData.designation,
@@ -434,12 +436,19 @@ export const EditProfile = ({
 
             <Grid item xs={12} md={6}>
               <TextField
+                select
                 fullWidth
                 label="Department"
                 name="department"
-                value={getDeptFullName(formData.department)}
-                disabled
-              />
+                value={formData.department}
+                onChange={handleChange}
+              >
+              {[...StaffdepList].map(([key, value]) => (
+                  <MenuItem key={key} value={key}>
+                    {value}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -522,6 +531,18 @@ export const EditProfile = ({
                 value={formData.date_of_joining}
                 disabled
                 InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Date of Birth"
+                name="date_of_birth"
+                value={formData.date_of_birth}
+                InputLabelProps={{ shrink: true }}
+                onChange={handleChange}
               />
             </Grid>
           </Grid>

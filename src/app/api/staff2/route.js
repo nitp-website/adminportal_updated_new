@@ -397,6 +397,7 @@ export async function POST(request) {
       role,
       employee_code,
       date_of_joining,
+      date_of_birth,
       cadre,
       department,
       designation,
@@ -426,6 +427,7 @@ export async function POST(request) {
         SET
           employee_code=?,
           date_of_joining=?,
+          date_of_birth=?,
           cadre=?,
           department=?,
           designation=?,
@@ -437,6 +439,7 @@ export async function POST(request) {
         [
           employee_code ?? null,
           date_of_joining ?? null,
+          date_of_birth ?? null,
           cadre ?? null,
           department ?? null,
           designation ?? null,
@@ -511,6 +514,7 @@ export async function POST(request) {
             user_id,
             employee_code,
             date_of_joining,
+            date_of_birth,
             cadre,
             department,
             designation,
@@ -518,12 +522,13 @@ export async function POST(request) {
             current_address,
             permanent_address
           )
-          VALUES (?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?)
           `,
           [
             resolvedUserId,
             employee_code ?? null,
             date_of_joining ?? null,
+            date_of_birth ?? null,
             cadre ?? null,
             department ? department.toLowerCase() : null,
             designation ?? null,
@@ -696,6 +701,7 @@ export async function PUT(request) {
       user_id,
       employee_code,
       date_of_joining,
+      date_of_birth,
       cadre,
       department,
       designation,
@@ -746,6 +752,7 @@ export async function PUT(request) {
       SET
         employee_code = ?,
         date_of_joining = ?,
+        date_of_birth = ?,
         cadre = COALESCE(?, cadre),
         department = ?,
         designation = COALESCE(?, designation),
@@ -757,6 +764,7 @@ export async function PUT(request) {
       [
         employee_code ?? null,
         date_of_joining ?? null,
+        date_of_birth ?? null,
         cadre ?? null,
         department ?? null,
         designation ?? null,

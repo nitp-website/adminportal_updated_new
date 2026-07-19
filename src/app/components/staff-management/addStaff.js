@@ -27,6 +27,7 @@ const emptyForm = {
   // staff table fields
   employee_code: '',
   date_of_joining: '',
+  date_of_birth : '',
   cadre: '',
   department: '',
   designation: '',
@@ -81,6 +82,7 @@ export function AddStaff({ open, onClose, onSuccess }) {
           category: formData.category || null,
           employee_code: formData.employee_code,
           date_of_joining: formData.date_of_joining,
+          date_of_birth : formData.date_of_birth || null,
           cadre: formData.cadre,
           department: formData.department,
           designation: formData.designation,
@@ -236,6 +238,18 @@ export function AddStaff({ open, onClose, onSuccess }) {
                 />
               </Grid>
 
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Date of Birth"
+                  value={formData.date_of_birth}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  variant="outlined"
+                />
+              </Grid>
+              
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
