@@ -6,11 +6,6 @@ on:
       - master
   workflow_dispatch:
 
-env:
-  IMAGE_NAME: nitp-admin-portal
-  CONTAINER_NAME: nitp-admin-portal
-  APP_DIR: /nitp-admin-panel
-
 jobs:
   build-and-deploy:
 
@@ -43,7 +38,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       ############################################################
-      # Metadata
+      # Docker Metadata
       ############################################################
 
       - name: Docker Metadata
@@ -56,7 +51,7 @@ jobs:
             type=sha
 
       ############################################################
-      # Build Image
+      # Build & Push
       ############################################################
 
       - name: Build & Push Docker Image
@@ -66,18 +61,16 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       ############################################################
-      # SSH Deployment
+      # Deploy
       ############################################################
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
-
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
@@ -87,86 +80,104 @@ jobs:
 
             set -e
 
-            echo "==============================="
-            echo "Preparing deployment folder..."
-            echo "==============================="
+            APP_DIR="$HOME/nitp-admin-panel"
 
-            mkdir -p /nitp-admin-panel
+            echo "=================================="
+            echo "Deploy Directory : $APP_DIR"
+            echo "=================================="
+
+            mkdir -p "$APP_DIR"
 
             ##################################################
             # Generate .env
             ##################################################
 
-            cat > /nitp-admin-panel/.env <<EOF
+            cat > "$APP_DIR/.env" <<EOF
+NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+URL=${{ secrets.URL }}
+DOMAIN=${{ secrets.DOMAIN }}
 
-            NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
-            URL=${{ secrets.URL }}
-            DOMAIN=${{ secrets.DOMAIN }}
+NEXT_GOOGLE_ID=${{ secrets.NEXT_GOOGLE_ID }}
+NEXT_GOOGLE_SECRET=${{ secrets.NEXT_GOOGLE_SECRET }}
 
-            NEXT_GOOGLE_ID=${{ secrets.NEXT_GOOGLE_ID }}
-            NEXT_GOOGLE_SECRET=${{ secrets.NEXT_GOOGLE_SECRET }}
+NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
 
-            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
+MYSQL_HOST=${{ secrets.MYSQL_HOST }}
+MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+MYSQL_USERNAME=${{ secrets.MYSQL_USERNAME }}
+MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+MYSQL_PORT=${{ secrets.MYSQL_PORT }}
 
-            MYSQL_HOST=${{ secrets.MYSQL_HOST }}
-            MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
-            MYSQL_USERNAME=${{ secrets.MYSQL_USERNAME }}
-            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
-            MYSQL_PORT=${{ secrets.MYSQL_PORT }}
+AWS_REGION=${{ secrets.AWS_REGION }}
+AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
 
-            AWS_REGION=${{ secrets.AWS_REGION }}
-            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
+REDIS_HOST=${{ secrets.REDIS_HOST }}
+REDIS_PORT=${{ secrets.REDIS_PORT }}
+REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+REDIS_DB=${{ secrets.REDIS_DB }}
 
-            REDIS_HOST=${{ secrets.REDIS_HOST }}
-            REDIS_PORT=${{ secrets.REDIS_PORT }}
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            REDIS_DB=${{ secrets.REDIS_DB }}
+TOKEN_PATH=${{ secrets.TOKEN_PATH }}
+FOLDER_ID=${{ secrets.FOLDER_ID }}
 
-            TOKEN_PATH=${{ secrets.TOKEN_PATH }}
-            FOLDER_ID=${{ secrets.FOLDER_ID }}
+BROADCAST_EMAIL=${{ secrets.BROADCAST_EMAIL }}
+BROADCAST_EMAIL_PASS=${{ secrets.BROADCAST_EMAIL_PASS }}
 
-            BROADCAST_EMAIL=${{ secrets.BROADCAST_EMAIL }}
-            BROADCAST_EMAIL_PASS=${{ secrets.BROADCAST_EMAIL_PASS }}
+REDIRECT_URIS=${{ secrets.REDIRECT_URIS }}
 
-            REDIRECT_URIS=${{ secrets.REDIRECT_URIS }}
+GOOGLE_DRIVE_CREDENTIALS='${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}'
+GOOGLE_DRIVE_FOLDER_ID=${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
 
-            GOOGLE_DRIVE_CREDENTIALS='${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}'
-            GOOGLE_DRIVE_FOLDER_ID=${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+NODE_ENV=production
+EOF
 
-            NODE_ENV=production
+            chmod 600 "$APP_DIR/.env"
 
-            EOF
-
-            chmod 600 /nitp-admin-panel/.env
-
-            echo "Environment file created."
+            echo "✅ .env created"
 
             ##################################################
-            # Deploy
+            # Run Deployment
             ##################################################
 
-            chmod +x /nitp-admin-panel/deploy.sh
+            chmod +x "$APP_DIR/deploy.sh"
 
-            /nitp-admin-panel/deploy.sh
+            "$APP_DIR/deploy.sh"
+
+            ##################################################
+            # Wait for Container
+            ##################################################
+
+            echo ""
+            echo "Waiting for container..."
+
+            sleep 10
+
+            if [ "$(docker inspect -f '{{.State.Running}}' nitp-admin-portal)" != "true" ]; then
+              echo "❌ Container crashed."
+
+              docker logs nitp-admin-portal
+
+              exit 1
+            fi
 
             ##################################################
             # Health Check
             ##################################################
 
             echo ""
-            echo "Waiting for application..."
+            echo "Checking application health..."
 
-            for i in {1..30}
+            READY=0
+
+            for i in $(seq 1 30)
             do
 
-              if curl -fs http://localhost:3000/api/health >/dev/null
+              if curl -fs http://localhost:3000/api/health >/dev/null 2>&1
               then
-                echo ""
-                echo "Application Healthy"
-                exit 0
+                READY=1
+                break
               fi
 
               echo "Retry $i / 30"
@@ -175,9 +186,12 @@ jobs:
 
             done
 
-            echo ""
-            echo "Application failed to start."
+            if [ "$READY" -eq 1 ]; then
+              echo "✅ Deployment Successful"
+            else
+              echo "❌ Health Check Failed"
 
-            docker logs nitp-admin-portal
+              docker logs nitp-admin-portal
 
-            exit 1
+              exit 1
+            fi
