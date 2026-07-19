@@ -17,6 +17,8 @@ import {
   IconButton,
   ImageList,
   ImageListItem,
+  Tabs,
+  Tab,
   MenuItem,
   TextField
 } from '@mui/material'
@@ -25,6 +27,8 @@ import LanguageIcon from '@mui/icons-material/Language'
 import LinkedInIcon from '@mui/icons-material/LinkedIn'
 import InstagramIcon from '@mui/icons-material/Instagram'
 import TwitterIcon from '@mui/icons-material/Twitter'
+import YouTubeIcon from '@mui/icons-material/YouTube'
+import FacebookIcon from '@mui/icons-material/Facebook'
 import { ClubAdminDashboard } from './club-admin-dashboard'
 
 export default function ClubProfileView() {
@@ -34,6 +38,7 @@ export default function ClubProfileView() {
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [selectedSessionKey, setSelectedSessionKey] = useState('')
+  const [campusTab, setCampusTab] = useState(0)
 
   const fetchClub = async () => {
     setLoading(true)
@@ -345,7 +350,22 @@ export default function ClubProfileView() {
                     <TwitterIcon />
                   </IconButton>
                 )}
-                {!club.social_links?.website && !club.social_links?.linkedin && !club.social_links?.instagram && !club.social_links?.twitter && (
+                {club.social_links?.youtube && (
+                  <IconButton href={club.social_links.youtube} target="_blank" color="primary">
+                    <YouTubeIcon />
+                  </IconButton>
+                )}
+                {club.social_links?.facebook && (
+                  <IconButton href={club.social_links.facebook} target="_blank" color="primary">
+                    <FacebookIcon />
+                  </IconButton>
+                )}
+                {!club.social_links?.website && 
+                 !club.social_links?.linkedin && 
+                 !club.social_links?.instagram && 
+                 !club.social_links?.twitter && 
+                 !club.social_links?.youtube && 
+                 !club.social_links?.facebook && (
                   <Typography variant="body2" color="text.secondary">
                     No social links provided.
                   </Typography>
@@ -381,121 +401,108 @@ export default function ClubProfileView() {
                   </TextField>
 
                   {activeSession ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                      {/* Patna Campus PI */}
-                      {activeSession.patna_campus_pi?.name && (
-                        <Card variant="outlined">
-                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                              <Avatar src={activeSession.patna_campus_pi.avatar || undefined} sx={{ bgcolor: '#830001' }}>
-                                {activeSession.patna_campus_pi.name.charAt(0).toUpperCase()}
-                              </Avatar>
-                              <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.2 }}>
-                                  {activeSession.patna_campus_pi.name}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Patna Campus PI | {activeSession.patna_campus_pi.department}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Email: {activeSession.patna_campus_pi.email}
-                                </Typography>
-                                {activeSession.patna_campus_pi.contact && (
-                                  <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                    Contact: {activeSession.patna_campus_pi.contact}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
+                    <Box>
+                      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                        <Tabs value={campusTab} onChange={(e, newValue) => setCampusTab(newValue)} aria-label="preview campus tabs">
+                          <Tab label="Patna Campus" />
+                          <Tab label="Bihta Campus" />
+                        </Tabs>
+                      </Box>
+
+                      {/* Patna Campus Panel */}
+                      {campusTab === 0 && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                          {[
+                            { key: 'pi', label: 'Patna Campus PI' },
+                            { key: 'president', label: 'President' },
+                            { key: 'vice_president', label: 'Vice-President' },
+                            { key: 'secretary', label: 'Secretary' },
+                            { key: 'joint_secretary_1', label: 'Joint-Secretary 1' },
+                            { key: 'joint_secretary_2', label: 'Joint-Secretary 2' },
+                            { key: 'coordinator_1', label: 'Coordinator 1' },
+                            { key: 'coordinator_2', label: 'Coordinator 2' },
+                          ].map((role) => {
+                            const member = activeSession.patna?.[role.key] || (role.key === 'pi' ? activeSession.patna_campus_pi : (role.key === 'president' ? activeSession.president : (role.key === 'secretary' ? activeSession.secretary : null)));
+                            if (!member?.name) return null;
+                            return (
+                              <Card variant="outlined" key={role.key}>
+                                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                    <Avatar src={member.avatar || undefined} sx={{ bgcolor: '#830001' }}>
+                                      {member.name.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                    <Box>
+                                      <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.2 }}>
+                                        {member.name}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
+                                        {role.label} | {member.department}
+                                      </Typography>
+                                      {member.email && (
+                                        <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
+                                          Email: {member.email}
+                                        </Typography>
+                                      )}
+                                      {member.contact && (
+                                        <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
+                                          Contact: {member.contact}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Box>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </Box>
                       )}
 
-                      {/* Bihta Campus PI */}
-                      {activeSession.bihta_campus_pi?.name && (
-                        <Card variant="outlined">
-                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                              <Avatar src={activeSession.bihta_campus_pi.avatar || undefined} sx={{ bgcolor: '#830001' }}>
-                                {activeSession.bihta_campus_pi.name.charAt(0).toUpperCase()}
-                              </Avatar>
-                              <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.2 }}>
-                                  {activeSession.bihta_campus_pi.name}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Bihta Campus PI | {activeSession.bihta_campus_pi.department}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Email: {activeSession.bihta_campus_pi.email}
-                                </Typography>
-                                {activeSession.bihta_campus_pi.contact && (
-                                  <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                    Contact: {activeSession.bihta_campus_pi.contact}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* President */}
-                      {activeSession.president?.name && (
-                        <Card variant="outlined">
-                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                              <Avatar src={activeSession.president.avatar || undefined} sx={{ bgcolor: '#830001' }}>
-                                {activeSession.president.name.charAt(0).toUpperCase()}
-                              </Avatar>
-                              <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.2 }}>
-                                  {activeSession.president.name}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Club President | {activeSession.president.department}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Email: {activeSession.president.email}
-                                </Typography>
-                                {activeSession.president.contact && (
-                                  <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                    Contact: {activeSession.president.contact}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Secretary */}
-                      {activeSession.secretary?.name && (
-                        <Card variant="outlined">
-                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                              <Avatar src={activeSession.secretary.avatar || undefined} sx={{ bgcolor: '#830001' }}>
-                                {activeSession.secretary.name.charAt(0).toUpperCase()}
-                              </Avatar>
-                              <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.2 }}>
-                                  {activeSession.secretary.name}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Club Secretary | {activeSession.secretary.department}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                  Email: {activeSession.secretary.email}
-                                </Typography>
-                                {activeSession.secretary.contact && (
-                                  <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-                                    Contact: {activeSession.secretary.contact}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Box>
-                          </CardContent>
-                        </Card>
+                      {/* Bihta Campus Panel */}
+                      {campusTab === 1 && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                          {[
+                            { key: 'pi', label: 'Bihta Campus PI' },
+                            { key: 'president', label: 'President' },
+                            { key: 'vice_president', label: 'Vice-President' },
+                            { key: 'secretary', label: 'Secretary' },
+                            { key: 'joint_secretary_1', label: 'Joint-Secretary 1' },
+                            { key: 'joint_secretary_2', label: 'Joint-Secretary 2' },
+                            { key: 'coordinator_1', label: 'Coordinator 1' },
+                            { key: 'coordinator_2', label: 'Coordinator 2' },
+                          ].map((role) => {
+                            const member = activeSession.bihta?.[role.key] || (role.key === 'pi' ? activeSession.bihta_campus_pi : null);
+                            if (!member?.name) return null;
+                            return (
+                              <Card variant="outlined" key={role.key}>
+                                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                    <Avatar src={member.avatar || undefined} sx={{ bgcolor: '#830001' }}>
+                                      {member.name.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                    <Box>
+                                      <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.2 }}>
+                                        {member.name}
+                                      </Typography>
+                                      <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
+                                        {role.label} | {member.department}
+                                      </Typography>
+                                      {member.email && (
+                                        <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
+                                          Email: {member.email}
+                                        </Typography>
+                                      )}
+                                      {member.contact && (
+                                        <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
+                                          Contact: {member.contact}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Box>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </Box>
                       )}
                     </Box>
                   ) : null}

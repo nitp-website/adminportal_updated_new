@@ -17,11 +17,15 @@ import {
   Typography,
   Chip,
   Skeleton,
+  Switch,
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
+import ImportExportIcon from '@mui/icons-material/ImportExport'
 import { AddClub } from './club-management-props/add-club'
 import { EditClub } from './club-management-props/edit-club'
 import { ConfirmDeleteClub } from './club-management-props/confirm-delete'
@@ -63,6 +67,61 @@ export function ClubTable() {
   const [openDelete, setOpenDelete] = useState(false)
   const [selectedClub, setSelectedClub] = useState(null)
   const [clubToDelete, setClubToDelete] = useState(null)
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: '' })
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = '';
+      key = '';
+    }
+    setSortConfig({ key, direction });
+  }
+
+  const sortedClubs = React.useMemo(() => {
+    if (!sortConfig.key) return clubs;
+    const sorted = [...clubs];
+    sorted.sort((a, b) => {
+      let valA = a[sortConfig.key] || '';
+      let valB = b[sortConfig.key] || '';
+      
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (valA > valB) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+    return sorted;
+  }, [clubs, sortConfig]);
+
+  const handleToggleStatus = async (club) => {
+    const newStatus = club.status === 'Active' ? 'Inactive' : 'Active';
+    try {
+      const res = await fetch('/api/admin/clubs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: club.id,
+          status: newStatus
+        })
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to update status');
+      }
+      setClubs(prev => prev.map(c => c.id === club.id ? { ...c, status: newStatus } : c));
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Failed to toggle status');
+    }
+  }
 
   const fetchClubs = useCallback(async () => {
     setLoading(true)
@@ -90,7 +149,7 @@ export function ClubTable() {
 
   useEffect(() => setPage(0), [nameSearch, emailSearch])
 
-  const paginated = clubs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+  const paginated = sortedClubs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
   return (
     <Paper sx={{ width: '100%', overflow: 'hidden', p: 3 }}>
@@ -129,11 +188,36 @@ export function ClubTable() {
         <Table stickyHeader>
           <TableHead>
             <TableRow>
-              {columns.map((col) => (
-                <TableCell key={col.id} style={{ minWidth: col.minWidth, fontWeight: 'bold' }}>
-                  {col.label}
-                </TableCell>
-              ))}
+              {columns.map((col) => {
+                const isSortable = col.id === 'name' || col.id === 'category';
+                return (
+                  <TableCell
+                    key={col.id}
+                    style={{
+                      minWidth: col.minWidth,
+                      fontWeight: 'bold',
+                      cursor: isSortable ? 'pointer' : 'default',
+                      userSelect: isSortable ? 'none' : 'auto'
+                    }}
+                    onClick={isSortable ? () => handleSort(col.id) : undefined}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {col.label}
+                      {isSortable && (
+                        sortConfig.key === col.id ? (
+                          sortConfig.direction === 'asc' ? (
+                            <ArrowUpwardIcon fontSize="small" sx={{ fontSize: '1rem' }} />
+                          ) : (
+                            <ArrowDownwardIcon fontSize="small" sx={{ fontSize: '1rem' }} />
+                          )
+                        ) : (
+                          <ImportExportIcon fontSize="small" sx={{ color: 'action.active', opacity: 0.5, fontSize: '1rem' }} />
+                        )
+                      )}
+                    </Box>
+                  </TableCell>
+                );
+              })}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -158,11 +242,20 @@ export function ClubTable() {
                   <TableCell>{row.category}</TableCell>
                   <TableCell>{getClubPiName(row)}</TableCell>
                   <TableCell>
-                    <Chip
-                      label={row.status}
-                      size="small"
-                      color={row.status === 'Active' ? 'success' : 'default'}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip
+                        label={row.status}
+                        size="small"
+                        color={row.status === 'Active' ? 'success' : 'default'}
+                      />
+                      <Switch
+                        size="small"
+                        checked={row.status === 'Active'}
+                        onChange={() => handleToggleStatus(row)}
+                        color="success"
+                        inputProps={{ 'aria-label': 'toggle club status' }}
+                      />
+                    </Box>
                   </TableCell>
                   <TableCell>
                     <IconButton color="primary" size="small" onClick={() => { setSelectedClub(row); setOpenEdit(true) }}>

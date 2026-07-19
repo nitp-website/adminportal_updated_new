@@ -36,10 +36,26 @@ import { CLUB_CATEGORIES } from '@/lib/clubConstants'
 import Toast from '@/app/components/common/Toast'
 
 const createEmptySession = () => ({
-  patna_campus_pi: { name: '', email: '', department: '', contact: '', avatar: '' },
-  bihta_campus_pi: { name: '', email: '', department: '', contact: '', avatar: '' },
-  president: { name: '', email: '', department: '', contact: '', avatar: '' },
-  secretary: { name: '', email: '', department: '', contact: '', avatar: '' },
+  patna: {
+    pi: { name: '', email: '', department: '', contact: '', avatar: '' },
+    president: { name: '', email: '', department: '', contact: '', avatar: '' },
+    vice_president: { name: '', email: '', department: '', contact: '', avatar: '' },
+    secretary: { name: '', email: '', department: '', contact: '', avatar: '' },
+    joint_secretary_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+    joint_secretary_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+    coordinator_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+    coordinator_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+  },
+  bihta: {
+    pi: { name: '', email: '', department: '', contact: '', avatar: '' },
+    president: { name: '', email: '', department: '', contact: '', avatar: '' },
+    vice_president: { name: '', email: '', department: '', contact: '', avatar: '' },
+    secretary: { name: '', email: '', department: '', contact: '', avatar: '' },
+    joint_secretary_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+    joint_secretary_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+    coordinator_1: { name: '', email: '', department: '', contact: '', avatar: '' },
+    coordinator_2: { name: '', email: '', department: '', contact: '', avatar: '' },
+  }
 })
 
 function MemberEditCard({ title, value, onChange, onAvatarUpload, uploading, showContact = false, setToast }) {
@@ -208,16 +224,12 @@ function MemberEditCard({ title, value, onChange, onAvatarUpload, uploading, sho
 export function ClubAdminDashboard({ onClose }) {
   const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState(0)
+  const [campusTab, setCampusTab] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingPicture, setUploadingPicture] = useState(false)
-  const [uploadingAvatars, setUploadingAvatars] = useState({
-    patna_campus_pi: false,
-    bihta_campus_pi: false,
-    president: false,
-    secretary: false,
-  })
+  const [uploadingAvatars, setUploadingAvatars] = useState({})
 
   const [form, setForm] = useState({
     club_login_id: '',
@@ -236,6 +248,8 @@ export function ClubAdminDashboard({ onClose }) {
       linkedin: '',
       instagram: '',
       twitter: '',
+      youtube: '',
+      facebook: '',
     },
     members: {},
   })
@@ -282,7 +296,7 @@ export function ClubAdminDashboard({ onClose }) {
         active_members: data.active_members || '',
         events_organized: data.events_organized || '',
         message_from_pi: data.message_from_pi || '',
-        social_links: data.social_links || { website: '', linkedin: '', instagram: '', twitter: '' },
+        social_links: data.social_links || { website: '', linkedin: '', instagram: '', twitter: '', youtube: '', facebook: '' },
         members: data.members || {},
       })
     } catch (err) {
@@ -415,20 +429,25 @@ export function ClubAdminDashboard({ onClose }) {
     }))
   }
 
-  const handleAvatarUpload = async (role, file) => {
-    setUploadingAvatars((prev) => ({ ...prev, [role]: true }))
+  const handleAvatarUpload = async (campus, role, file) => {
+    const key = `${campus}_${role}`
+    setUploadingAvatars((prev) => ({ ...prev, [key]: true }))
     try {
       const url = await uploadFile(file)
       setForm((prev) => {
         const sessionData = prev.members[selectedSessionKey] || createEmptySession()
-        const updatedRoleData = { ...sessionData[role], avatar: url }
+        const campusData = sessionData[campus] || createEmptySession()[campus]
+        const updatedRoleData = { ...campusData[role], avatar: url }
         return {
           ...prev,
           members: {
             ...prev.members,
             [selectedSessionKey]: {
               ...sessionData,
-              [role]: updatedRoleData,
+              [campus]: {
+                ...campusData,
+                [role]: updatedRoleData,
+              }
             },
           },
         }
@@ -437,7 +456,7 @@ export function ClubAdminDashboard({ onClose }) {
     } catch {
       setToast({ open: true, severity: 'error', message: 'Avatar upload failed' })
     } finally {
-      setUploadingAvatars((prev) => ({ ...prev, [role]: false }))
+      setUploadingAvatars((prev) => ({ ...prev, [key]: false }))
     }
   }
 
@@ -469,7 +488,7 @@ export function ClubAdminDashboard({ onClose }) {
           active_members: data.club.active_members || '',
           events_organized: data.club.events_organized || '',
           message_from_pi: data.club.message_from_pi || '',
-          social_links: data.club.social_links || { website: '', linkedin: '', instagram: '', twitter: '' },
+          social_links: data.club.social_links || { website: '', linkedin: '', instagram: '', twitter: '', youtube: '', facebook: '' },
           members: data.club.members || {},
         })
       }
@@ -509,16 +528,20 @@ export function ClubAdminDashboard({ onClose }) {
     }
   }
 
-  const updateSessionMember = (role, val) => {
+  const updateSessionMember = (campus, role, val) => {
     setForm((prev) => {
       const sessionData = prev.members[selectedSessionKey] || createEmptySession()
+      const campusData = sessionData[campus] || createEmptySession()[campus]
       return {
         ...prev,
         members: {
           ...prev.members,
           [selectedSessionKey]: {
             ...sessionData,
-            [role]: val,
+            [campus]: {
+              ...campusData,
+              [role]: val,
+            },
           },
         },
       }
@@ -803,6 +826,26 @@ export function ClubAdminDashboard({ onClose }) {
                 }
               />
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="YouTube Channel URL"
+                fullWidth
+                value={form.social_links?.youtube || ''}
+                onChange={(e) =>
+                  setForm({ ...form, social_links: { ...form.social_links, youtube: e.target.value } })
+                }
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Facebook Page URL"
+                fullWidth
+                value={form.social_links?.facebook || ''}
+                onChange={(e) =>
+                  setForm({ ...form, social_links: { ...form.social_links, facebook: e.target.value } })
+                }
+              />
+            </Grid>
           </Grid>
         </Box>
       )}
@@ -886,53 +929,69 @@ export function ClubAdminDashboard({ onClose }) {
                     Members details for Session {selectedSessionKey}
                   </Typography>
 
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6}>
-                      <MemberEditCard
-                        title="Patna Campus PI"
-                        value={form.members[selectedSessionKey]?.patna_campus_pi}
-                        onChange={(val) => updateSessionMember('patna_campus_pi', val)}
-                        uploading={uploadingAvatars.patna_campus_pi}
-                        onAvatarUpload={(file) => handleAvatarUpload('patna_campus_pi', file)}
-                        showContact={true}
-                        setToast={setToast}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <MemberEditCard
-                        title="Bihta Campus PI"
-                        value={form.members[selectedSessionKey]?.bihta_campus_pi}
-                        onChange={(val) => updateSessionMember('bihta_campus_pi', val)}
-                        uploading={uploadingAvatars.bihta_campus_pi}
-                        onAvatarUpload={(file) => handleAvatarUpload('bihta_campus_pi', file)}
-                        showContact={true}
-                        setToast={setToast}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <MemberEditCard
-                        title="Club President"
-                        value={form.members[selectedSessionKey]?.president}
-                        onChange={(val) => updateSessionMember('president', val)}
-                        uploading={uploadingAvatars.president}
-                        onAvatarUpload={(file) => handleAvatarUpload('president', file)}
-                        showContact={true}
-                        setToast={setToast}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <MemberEditCard
-                        title="Club Secretary"
-                        value={form.members[selectedSessionKey]?.secretary}
-                        onChange={(val) => updateSessionMember('secretary', val)}
-                        uploading={uploadingAvatars.secretary}
-                        onAvatarUpload={(file) => handleAvatarUpload('secretary', file)}
-                        showContact={true}
-                        setToast={setToast}
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                      <Tabs value={campusTab} onChange={(e, newValue) => setCampusTab(newValue)} aria-label="campus bearer tabs">
+                        <Tab label="Patna Campus Office Bearers" />
+                        <Tab label="Bihta Campus Office Bearers" />
+                      </Tabs>
+                    </Box>
+
+                    {/* Patna Campus Tab */}
+                    {campusTab === 0 && (
+                      <Grid container spacing={3}>
+                        {[
+                          { key: 'pi', title: 'Patna Campus PI', showContact: true },
+                          { key: 'president', title: 'President', showContact: true },
+                          { key: 'vice_president', title: 'Vice-President', showContact: true },
+                          { key: 'secretary', title: 'Secretary', showContact: true },
+                          { key: 'joint_secretary_1', title: 'Joint-Secretary 1', showContact: true },
+                          { key: 'joint_secretary_2', title: 'Joint-Secretary 2', showContact: true },
+                          { key: 'coordinator_1', title: 'Coordinator 1', showContact: true },
+                          { key: 'coordinator_2', title: 'Coordinator 2', showContact: true },
+                        ].map((role) => (
+                          <Grid item xs={12} sm={6} key={role.key}>
+                            <MemberEditCard
+                              title={role.title}
+                              value={form.members[selectedSessionKey]?.patna?.[role.key]}
+                              onChange={(val) => updateSessionMember('patna', role.key, val)}
+                              uploading={uploadingAvatars[`patna_${role.key}`]}
+                              onAvatarUpload={(file) => handleAvatarUpload('patna', role.key, file)}
+                              showContact={role.showContact}
+                              setToast={setToast}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
+                    )}
+
+                    {/* Bihta Campus Tab */}
+                    {campusTab === 1 && (
+                      <Grid container spacing={3}>
+                        {[
+                          { key: 'pi', title: 'Bihta Campus PI', showContact: true },
+                          { key: 'president', title: 'President', showContact: true },
+                          { key: 'vice_president', title: 'Vice-President', showContact: true },
+                          { key: 'secretary', title: 'Secretary', showContact: true },
+                          { key: 'joint_secretary_1', title: 'Joint-Secretary 1', showContact: true },
+                          { key: 'joint_secretary_2', title: 'Joint-Secretary 2', showContact: true },
+                          { key: 'coordinator_1', title: 'Coordinator 1', showContact: true },
+                          { key: 'coordinator_2', title: 'Coordinator 2', showContact: true },
+                        ].map((role) => (
+                          <Grid item xs={12} sm={6} key={role.key}>
+                            <MemberEditCard
+                              title={role.title}
+                              value={form.members[selectedSessionKey]?.bihta?.[role.key]}
+                              onChange={(val) => updateSessionMember('bihta', role.key, val)}
+                              uploading={uploadingAvatars[`bihta_${role.key}`]}
+                              onAvatarUpload={(file) => handleAvatarUpload('bihta', role.key, file)}
+                              showContact={role.showContact}
+                              setToast={setToast}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
+                    )}
+                  </Box>
               ) : (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
                   <Typography variant="body2" color="text.secondary">
