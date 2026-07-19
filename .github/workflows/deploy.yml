@@ -75,9 +75,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-
           script: |
-
             set -e
 
             APP_DIR="$HOME/nitp-admin-panel"
@@ -92,46 +90,46 @@ jobs:
             # Generate .env
             ##################################################
 
-            cat > "$APP_DIR/.env" <<EOF
-NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
-URL=${{ secrets.URL }}
-DOMAIN=${{ secrets.DOMAIN }}
+            cat > "$APP_DIR/.env" <<'EOF'
+            NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+            URL=${{ secrets.URL }}
+            DOMAIN=${{ secrets.DOMAIN }}
 
-NEXT_GOOGLE_ID=${{ secrets.NEXT_GOOGLE_ID }}
-NEXT_GOOGLE_SECRET=${{ secrets.NEXT_GOOGLE_SECRET }}
+            NEXT_GOOGLE_ID=${{ secrets.NEXT_GOOGLE_ID }}
+            NEXT_GOOGLE_SECRET=${{ secrets.NEXT_GOOGLE_SECRET }}
 
-NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
-JWT_SECRET=${{ secrets.JWT_SECRET }}
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
 
-MYSQL_HOST=${{ secrets.MYSQL_HOST }}
-MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
-MYSQL_USERNAME=${{ secrets.MYSQL_USERNAME }}
-MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
-MYSQL_PORT=${{ secrets.MYSQL_PORT }}
+            MYSQL_HOST=${{ secrets.MYSQL_HOST }}
+            MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+            MYSQL_USERNAME=${{ secrets.MYSQL_USERNAME }}
+            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+            MYSQL_PORT=${{ secrets.MYSQL_PORT }}
 
-AWS_REGION=${{ secrets.AWS_REGION }}
-AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
 
-REDIS_HOST=${{ secrets.REDIS_HOST }}
-REDIS_PORT=${{ secrets.REDIS_PORT }}
-REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-REDIS_DB=${{ secrets.REDIS_DB }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_DB=${{ secrets.REDIS_DB }}
 
-TOKEN_PATH=${{ secrets.TOKEN_PATH }}
-FOLDER_ID=${{ secrets.FOLDER_ID }}
+            TOKEN_PATH=${{ secrets.TOKEN_PATH }}
+            FOLDER_ID=${{ secrets.FOLDER_ID }}
 
-BROADCAST_EMAIL=${{ secrets.BROADCAST_EMAIL }}
-BROADCAST_EMAIL_PASS=${{ secrets.BROADCAST_EMAIL_PASS }}
+            BROADCAST_EMAIL=${{ secrets.BROADCAST_EMAIL }}
+            BROADCAST_EMAIL_PASS=${{ secrets.BROADCAST_EMAIL_PASS }}
 
-REDIRECT_URIS=${{ secrets.REDIRECT_URIS }}
+            REDIRECT_URIS=${{ secrets.REDIRECT_URIS }}
 
-GOOGLE_DRIVE_CREDENTIALS='${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}'
-GOOGLE_DRIVE_FOLDER_ID=${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+            GOOGLE_DRIVE_CREDENTIALS='${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}'
+            GOOGLE_DRIVE_FOLDER_ID=${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
 
-NODE_ENV=production
-EOF
+            NODE_ENV=production
+            EOF
 
             chmod 600 "$APP_DIR/.env"
 
@@ -173,7 +171,6 @@ EOF
 
             for i in $(seq 1 30)
             do
-
               if curl -fs http://localhost:3000/api/health >/dev/null 2>&1
               then
                 READY=1
@@ -183,7 +180,6 @@ EOF
               echo "Retry $i / 30"
 
               sleep 5
-
             done
 
             if [ "$READY" -eq 1 ]; then
