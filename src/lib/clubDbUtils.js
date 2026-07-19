@@ -11,6 +11,12 @@ export async function populateClubsWithPiDetails(clubs) {
     if (club.members && typeof club.members === 'object') {
       for (const sessionKey of Object.keys(club.members)) {
         const session = club.members[sessionKey]
+        if (session?.patna?.pi?.email) {
+          emails.add(session.patna.pi.email.toLowerCase().trim())
+        }
+        if (session?.bihta?.pi?.email) {
+          emails.add(session.bihta.pi.email.toLowerCase().trim())
+        }
         if (session?.patna_campus_pi?.email) {
           emails.add(session.patna_campus_pi.email.toLowerCase().trim())
         }
@@ -42,6 +48,34 @@ export async function populateClubsWithPiDetails(clubs) {
         for (const sessionKey of Object.keys(club.members)) {
           const session = club.members[sessionKey]
           
+          if (session?.patna?.pi?.email) {
+            const email = session.patna.pi.email.toLowerCase().trim()
+            const fac = facultyMap.get(email)
+            if (fac) {
+              session.patna.pi = {
+                ...session.patna.pi,
+                name: fac.name || session.patna.pi.name,
+                department: fac.department || session.patna.pi.department,
+                contact: fac.contact || session.patna.pi.contact,
+                avatar: fac.avatar || session.patna.pi.avatar
+              }
+            }
+          }
+
+          if (session?.bihta?.pi?.email) {
+            const email = session.bihta.pi.email.toLowerCase().trim()
+            const fac = facultyMap.get(email)
+            if (fac) {
+              session.bihta.pi = {
+                ...session.bihta.pi,
+                name: fac.name || session.bihta.pi.name,
+                department: fac.department || session.bihta.pi.department,
+                contact: fac.contact || session.bihta.pi.contact,
+                avatar: fac.avatar || session.bihta.pi.avatar
+              }
+            }
+          }
+
           if (session?.patna_campus_pi?.email) {
             const email = session.patna_campus_pi.email.toLowerCase().trim()
             const fac = facultyMap.get(email)

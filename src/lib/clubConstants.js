@@ -1,11 +1,7 @@
 export const CLUB_CATEGORIES = [
   'Technical',
-  'Cultural',
   'Sports',
-  'Literary',
-  'Social',
-  'Innovation',
-  'Academic',
+  'Cultural & Social',
 ]
 
 export const CLUB_STATUSES = ['Active', 'Inactive']
