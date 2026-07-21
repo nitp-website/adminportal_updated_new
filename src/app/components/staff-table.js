@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Paper,
   Table,
@@ -12,20 +12,28 @@ import {
   TableRow,
   IconButton,
   Button,
-  CircularProgress,
   TextField,
   Box,
   Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ImportExportIcon from "@mui/icons-material/ImportExport";
 import { AddStaff } from "./staff-management/addStaff";
 import { EditStaff } from "./staff-management/editStaff";
 import { ConfirmDelete } from "./staff-management/confirm-delete";
 import Loading from "./common/Loading";
-import {getDeptFullName} from "@/lib/const";
+import { StaffdepList, getDeptFullName } from "@/lib/const";
+
+const DEPARTMENT_OPTIONS = Array.from(new Set(Array.from(StaffdepList.values())));
 
 const columns = [
   { id: "employee_code", label: "Employee Code", minWidth: 130 },
@@ -34,7 +42,6 @@ const columns = [
   { id: "department", label: "Department", minWidth: 180 },
   { id: "designation", label: "Designation", minWidth: 180 },
   { id: "cadre", label: "Cadre", minWidth: 160 },
-  // { id: "status", label: "Status", minWidth: 100 },
   { id: "actions", label: "Actions", minWidth: 120 },
 ];
 
@@ -50,29 +57,41 @@ export function StaffTable() {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [staffToDelete, setStaffToDelete] = useState(null);
   const [nameSearch, setNameSearch] = useState("");
-  const [departmentSearch, setDepartmentSearch] = useState("");
   const [nameInput, setNameInput] = useState("");
-  const [departmentInput, setDepartmentInput] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("All");
+  const [sortConfig, setSortConfig] = useState({ key: "", direction: "" });
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-  // Fetch a single page of staff, matching staff2's server-side pagination
-  const fetchStaff = async () => {
+  const handleSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    } else if (sortConfig.key === key && sortConfig.direction === "desc") {
+      direction = "";
+      key = "";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const fetchStaff = useCallback(async () => {
     try {
       setLoading(true);
 
       const params = new URLSearchParams({
-        page: String(page + 1), // MUI TablePagination is 0-indexed, API is 1-indexed
+        page: String(page + 1),
         limit: String(rowsPerPage),
-        name: nameSearch,
-        department: departmentSearch,
       });
+      if (nameSearch.trim()) params.set("name", nameSearch.trim());
+      if (departmentFilter && departmentFilter !== "All") params.set("department", departmentFilter);
+      if (sortConfig.key) {
+        params.set("sortBy", sortConfig.key);
+        params.set("sortOrder", sortConfig.direction || "asc");
+      }
 
       const res = await fetch(`/api/staff2?${params.toString()}`);
-
       if (!res.ok) throw new Error("Failed to fetch");
 
       const data = await res.json();
-
       setRows(Array.isArray(data?.data) ? data.data : []);
       setTotal(Number(data?.total) || 0);
     } catch (error) {
@@ -82,12 +101,11 @@ export function StaffTable() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rowsPerPage, nameSearch, departmentFilter, sortConfig]);
 
-  // Fetch staff data when pagination or search changes
   useEffect(() => {
     fetchStaff();
-  }, [page, rowsPerPage, nameSearch, departmentSearch]);
+  }, [fetchStaff]);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -122,7 +140,6 @@ export function StaffTable() {
       setOpenDelete(true);
     } catch (error) {
       console.error("Error fetching staff details:", error);
-      // Fallback: use the row data we already have
       setStaffToDelete(staffRow);
       setOpenDelete(true);
     }
@@ -136,20 +153,7 @@ export function StaffTable() {
 
   useEffect(() => {
     setPage(0);
-  }, [nameSearch, departmentSearch]);
-
-  const formatDate = (dateValue) => {
-    if (!dateValue) return "";
-    try {
-      const d = new Date(dateValue);
-      if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-    } catch (e) {
-      // fallthrough to fallback
-    }
-    if (typeof dateValue === "string" && dateValue.includes("T"))
-      return dateValue.split("T")[0];
-    return String(dateValue);
-  };
+  }, [nameSearch, departmentFilter, sortConfig]);
 
   return (
     <Paper sx={{ width: "100%", overflow: "hidden", p: 3 }}>
@@ -157,7 +161,7 @@ export function StaffTable() {
         <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
           Staff Management
         </Typography>
-        <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", mb: 2 }}>
           {loading && <Loading />}
           <TextField
             label="Search by Name"
@@ -166,51 +170,31 @@ export function StaffTable() {
             value={nameInput}
             onChange={(e) => {
               const value = e.target.value;
-
               setNameInput(value);
-              if (searchTimeout) {
-                clearTimeout(searchTimeout);
-              }
-
-              const timeout = setTimeout(() => {
-                setNameSearch(value);
-              }, 1000);
+              if (searchTimeout) clearTimeout(searchTimeout);
+              const timeout = setTimeout(() => setNameSearch(value), 600);
               setSearchTimeout(timeout);
             }}
-            sx={{ flexGrow: 1 }}
+            sx={{ flexGrow: 1, minWidth: 180 }}
             InputProps={{
-              startAdornment: (
-                <SearchIcon sx={{ color: "action.active", mr: 1 }} />
-              ),
+              startAdornment: <SearchIcon sx={{ color: "action.active", mr: 1 }} />,
             }}
           />
-          {/* <TextField
-            label="Search by Department"
-            variant="outlined"
-            size="small"
-            value={departmentInput}
-            onChange={(e) => {
-              const value = e.target.value;
-
-              setDepartmentInput(value);
-              setDepartmentSearch
-              if (searchTimeout) {
-                clearTimeout(searchTimeout);
-              }
-
-              const timeout = setTimeout(() => {
-                setDepartmentSearch(value);
-              }, 1000);
-
-              setSearchTimeout(timeout);
-            }}
-            sx={{ flexGrow: 1 }}
-            InputProps={{
-              startAdornment: (
-                <SearchIcon sx={{ color: "action.active", mr: 1 }} />
-              ),
-            }}
-          /> */}
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel id="dept-filter-label">Filter Department</InputLabel>
+            <Select
+              labelId="dept-filter-label"
+              id="dept-filter"
+              value={departmentFilter}
+              label="Filter Department"
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+            >
+              <MenuItem value="All">All Departments</MenuItem>
+              {DEPARTMENT_OPTIONS.map((dept) => (
+                <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -226,14 +210,36 @@ export function StaffTable() {
         <Table stickyHeader aria-label="sticky table">
           <TableHead>
             <TableRow>
-              {columns.map((column) => (
-                <TableCell
-                  key={column.id}
-                  style={{ minWidth: column.minWidth, fontWeight: "bold" }}
-                >
-                  {column.label}
-                </TableCell>
-              ))}
+              {columns.map((column) => {
+                const isSortable = ["employee_code", "name", "department"].includes(column.id);
+                return (
+                  <TableCell
+                    key={column.id}
+                    style={{
+                      minWidth: column.minWidth,
+                      fontWeight: "bold",
+                      cursor: isSortable ? "pointer" : "default",
+                      userSelect: isSortable ? "none" : "auto",
+                    }}
+                    onClick={isSortable ? () => handleSort(column.id) : undefined}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      {column.label}
+                      {isSortable && (
+                        sortConfig.key === column.id ? (
+                          sortConfig.direction === "asc" ? (
+                            <ArrowUpwardIcon fontSize="small" sx={{ fontSize: "1rem" }} />
+                          ) : (
+                            <ArrowDownwardIcon fontSize="small" sx={{ fontSize: "1rem" }} />
+                          )
+                        ) : (
+                          <ImportExportIcon fontSize="small" sx={{ color: "action.active", opacity: 0.5, fontSize: "1rem" }} />
+                        )
+                      )}
+                    </Box>
+                  </TableCell>
+                );
+              })}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -249,21 +255,6 @@ export function StaffTable() {
                 <TableCell>{getDeptFullName(row.department)}</TableCell>
                 <TableCell>{row.designation}</TableCell>
                 <TableCell>{row.cadre}</TableCell>
-                {/* <TableCell>
-                  {row.is_retired ? (
-                    <span>
-                      <span className="text-red-600 font-semibold">
-                        Retired
-                      </span>
-                      <br />
-                      <span>{formatDate(row.retirement_date)}</span>
-                    </span>
-                  ) : (
-                    <span className="text-green-500 rounded-full font-semibold">
-                      Active
-                    </span>
-                  )}
-                </TableCell> */}
                 <TableCell>
                   <IconButton
                     onClick={() => handleEdit(row)}

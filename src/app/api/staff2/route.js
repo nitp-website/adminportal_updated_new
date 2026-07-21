@@ -189,6 +189,8 @@ export async function GET(request) {
     // Search Filters
     const name = searchParams.get("name") || "";
     const department = searchParams.get("department") || "";
+    const sortBy = searchParams.get("sortBy") || "";
+    const sortOrder = searchParams.get("sortOrder")?.toUpperCase() === "DESC" ? "DESC" : "ASC";
 
     // GET SINGLE STAFF BY USER ID
     if (user_id) {
@@ -248,7 +250,18 @@ export async function GET(request) {
     }
 
     // COUNT
-    const deptCode = department.toLowerCase();
+    const rawDept = department.trim().toLowerCase();
+    let deptCondition = "";
+    const countParams = [`%${name}%`];
+    const dataParams = [`%${name}%`];
+
+    if (rawDept && rawDept !== "all") {
+      const fullDept = getDeptFullName(rawDept).toLowerCase();
+      deptCondition = "AND (LOWER(s.department) = ? OR LOWER(s.department) = ?)";
+      countParams.push(rawDept, fullDept);
+      dataParams.push(rawDept, fullDept);
+    }
+
     const countResult = await query(
       `
       SELECT COUNT(*) AS count
@@ -258,12 +271,21 @@ export async function GET(request) {
       WHERE
         u.is_deleted = 0
         AND u.name LIKE ?
-        AND (? = '' OR s.department = ?)
+        ${deptCondition}
       `,
-      [`%${name}%`, deptCode, deptCode],
+      countParams,
     );
 
     const total = Number(countResult[0].count);
+
+    let orderByClause = "ORDER BY u.name ASC";
+    if (sortBy === "employee_code") {
+      orderByClause = `ORDER BY s.employee_code ${sortOrder}, u.name ASC`;
+    } else if (sortBy === "name") {
+      orderByClause = `ORDER BY u.name ${sortOrder}`;
+    } else if (sortBy === "department") {
+      orderByClause = `ORDER BY s.department ${sortOrder}, u.name ASC`;
+    }
 
     // GET ALL STAFF
     const data = await query(
@@ -272,11 +294,11 @@ export async function GET(request) {
       WHERE
         u.is_deleted = 0
         AND u.name LIKE ?
-        AND (? = '' OR s.department = ?)
-      ORDER BY u.name ASC
+        ${deptCondition}
+      ${orderByClause}
       LIMIT ${limit} OFFSET ${offset}
       `,
-      [`%${name}%`, deptCode, deptCode],
+      dataParams,
     );
 
     const emails = [...new Set(data.map((row) => row.email).filter(Boolean))];

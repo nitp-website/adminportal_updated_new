@@ -18,6 +18,10 @@ import {
   Chip,
   Skeleton,
   Switch,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -60,6 +64,8 @@ export function ClubTable() {
   const [loading, setLoading] = useState(true)
   const [nameSearch, setNameSearch] = useState('')
   const [emailSearch, setEmailSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('All')
+  const [categoryFilter, setCategoryFilter] = useState('All')
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [openAdd, setOpenAdd] = useState(false)
@@ -78,11 +84,46 @@ export function ClubTable() {
       key = '';
     }
     setSortConfig({ key, direction });
+    if (key === 'category') {
+      if (direction === 'asc') setCategoryFilter('ASC');
+      else if (direction === 'desc') setCategoryFilter('DESC');
+      else setCategoryFilter('All');
+    }
   }
 
+  const handleCategoryFilterChange = (e) => {
+    const val = e.target.value;
+    setCategoryFilter(val);
+    if (val === 'ASC') {
+      setSortConfig({ key: 'category', direction: 'asc' });
+    } else if (val === 'DESC') {
+      setSortConfig({ key: 'category', direction: 'desc' });
+    } else if (sortConfig.key === 'category') {
+      setSortConfig({ key: '', direction: '' });
+    }
+  }
+
+  const filteredClubs = React.useMemo(() => {
+    return clubs.filter(club => {
+      if (statusFilter !== 'All' && club.status !== statusFilter) {
+        return false;
+      }
+      if (categoryFilter === 'Technical' && club.category !== 'Technical') {
+        return false;
+      }
+      if (categoryFilter === 'Cultural' && (!club.category || !club.category.toLowerCase().includes('cultural'))) {
+        return false;
+      }
+      if (categoryFilter === 'Sports' && club.category !== 'Sports') {
+        return false;
+      }
+      return true;
+    });
+  }, [clubs, statusFilter, categoryFilter]);
+
   const sortedClubs = React.useMemo(() => {
-    if (!sortConfig.key) return clubs;
-    const sorted = [...clubs];
+    if (!sortConfig.key) return filteredClubs;
+    const sorted = [...filteredClubs];
     sorted.sort((a, b) => {
       let valA = a[sortConfig.key] || '';
       let valB = b[sortConfig.key] || '';
@@ -99,7 +140,7 @@ export function ClubTable() {
       return 0;
     });
     return sorted;
-  }, [clubs, sortConfig]);
+  }, [filteredClubs, sortConfig]);
 
   const handleToggleStatus = async (club) => {
     const newStatus = club.status === 'Active' ? 'Inactive' : 'Active';
@@ -147,7 +188,7 @@ export function ClubTable() {
     return () => clearTimeout(t)
   }, [fetchClubs])
 
-  useEffect(() => setPage(0), [nameSearch, emailSearch])
+  useEffect(() => setPage(0), [nameSearch, emailSearch, statusFilter, categoryFilter])
 
   const paginated = sortedClubs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
@@ -157,13 +198,13 @@ export function ClubTable() {
         Club Management
       </Typography>
 
-      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
         <TextField
           label="Search by Club Name"
           size="small"
           value={nameSearch}
           onChange={(e) => setNameSearch(e.target.value)}
-          sx={{ flexGrow: 1, minWidth: 200 }}
+          sx={{ flexGrow: 1, minWidth: 180 }}
           InputProps={{ startAdornment: <SearchIcon sx={{ color: 'action.active', mr: 1 }} /> }}
         />
         <TextField
@@ -171,9 +212,40 @@ export function ClubTable() {
           size="small"
           value={emailSearch}
           onChange={(e) => setEmailSearch(e.target.value)}
-          sx={{ flexGrow: 1, minWidth: 200 }}
+          sx={{ flexGrow: 1, minWidth: 180 }}
           InputProps={{ startAdornment: <SearchIcon sx={{ color: 'action.active', mr: 1 }} /> }}
         />
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel id="category-filter-label">Category</InputLabel>
+          <Select
+            labelId="category-filter-label"
+            id="category-filter"
+            value={categoryFilter}
+            label="Category"
+            onChange={handleCategoryFilterChange}
+          >
+            <MenuItem value="All">All Categories</MenuItem>
+            <MenuItem value="ASC">All (Category A-Z)</MenuItem>
+            <MenuItem value="DESC">All (Category Z-A)</MenuItem>
+            <MenuItem value="Technical">Only Technical</MenuItem>
+            <MenuItem value="Cultural">Only Cultural</MenuItem>
+            <MenuItem value="Sports">Only Sports</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel id="status-filter-label">Filter Status</InputLabel>
+          <Select
+            labelId="status-filter-label"
+            id="status-filter"
+            value={statusFilter}
+            label="Filter Status"
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <MenuItem value="All">All Statuses</MenuItem>
+            <MenuItem value="Active">Active</MenuItem>
+            <MenuItem value="Inactive">Inactive</MenuItem>
+          </Select>
+        </FormControl>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -189,7 +261,7 @@ export function ClubTable() {
           <TableHead>
             <TableRow>
               {columns.map((col) => {
-                const isSortable = col.id === 'name' || col.id === 'category';
+                const isSortable = ['name', 'category', 'status'].includes(col.id);
                 return (
                   <TableCell
                     key={col.id}
@@ -275,7 +347,7 @@ export function ClubTable() {
       <TablePagination
         rowsPerPageOptions={[10, 25, 50]}
         component="div"
-        count={clubs.length}
+        count={sortedClubs.length}
         rowsPerPage={rowsPerPage}
         page={page}
         onPageChange={(_, p) => setPage(p)}

@@ -85,15 +85,65 @@ export async function GET(request) {
       case 'all': {
         const name = searchParams.get('name') || '';
         const email = searchParams.get('email') || '';
+        const department = searchParams.get('department') || '';
+        const roleParam = searchParams.get('role') || '';
+        const sortBy = searchParams.get('sortBy') || '';
+        const sortOrder = searchParams.get('sortOrder')?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+        const ROLE_MAP = {
+          'SUPER_ADMIN': 1,
+          'ACADEMIC_ADMIN': 2,
+          'FACULTY': 3,
+          'OFFICER': 4,
+          'STAFF': 5,
+          'DEPT_ADMIN': 6,
+          'TENDER_NOTICE_ADMIN': 7,
+          'CLUB_ADMIN': 8,
+        }
+
+        let whereConditions = ['u.is_deleted = 0'];
+        let queryParams = [];
+
+        let targetRoleId = null;
+        if (roleParam && roleParam !== 'All') {
+          targetRoleId = ROLE_MAP[roleParam.toUpperCase()] || (Number(roleParam) || null);
+        }
+
+        if (targetRoleId) {
+          whereConditions.push('u.role = ?');
+          queryParams.push(targetRoleId);
+        } else {
+          whereConditions.push('u.role <> 8');
+        }
+
+        whereConditions.push('u.name LIKE ?', 'u.email LIKE ?');
+        queryParams.push(`%${name}%`, `%${email}%`);
+
+        if (department && department !== 'All') {
+          whereConditions.push('u.department = ?');
+          queryParams.push(department);
+        }
+
+        const whereClause = 'WHERE ' + whereConditions.join(' AND ');
+
         const countRes = await query(
-          `SELECT COUNT(*) as count 
-           FROM user 
-           WHERE is_deleted = 0 AND role <> 8
-           AND name LIKE ?
-           AND email LIKE ?`,
-          [`%${name}%`,`%${email}%`]
+          `SELECT COUNT(*) as count FROM user u ${whereClause}`,
+          queryParams
         )
         total = Number(countRes[0].count)
+
+        let orderByClause = 'ORDER BY u.name ASC, u.email ASC';
+        if (sortBy === 'name') {
+          orderByClause = `ORDER BY u.name ${sortOrder}, u.email ASC`;
+        } else if (sortBy === 'department') {
+          orderByClause = `ORDER BY u.department ${sortOrder}, u.name ASC`;
+        } else if (sortBy === 'designation') {
+          orderByClause = `ORDER BY u.designation ${sortOrder}, u.name ASC`;
+        } else if (sortBy === 'role') {
+          orderByClause = `ORDER BY u.role ${sortOrder}, u.name ASC`;
+        } else if (sortBy === 'status') {
+          orderByClause = `ORDER BY u.is_retired ${sortOrder}, u.name ASC`;
+        }
 
         results = await query(
           `SELECT 
@@ -106,15 +156,14 @@ export async function GET(request) {
               WHEN 5 THEN 'STAFF'
               WHEN 6 THEN 'DEPT_ADMIN'
               WHEN 7 THEN 'TENDER_NOTICE_ADMIN'
+              WHEN 8 THEN 'CLUB_ADMIN'
             END as role_name,
             ${subqueries.join(',\n    ')}
               FROM user u 
-              WHERE u.is_deleted = 0 AND u.role <> 8
-               AND u.name LIKE ?
-               AND u.email LIKE ?
-                ORDER BY u.name ASC, u.email ASC
+              ${whereClause}
+              ${orderByClause}
               LIMIT ${limit} OFFSET ${offset}`,
-              [`%${name}%`,`%${email}%`]
+          queryParams
         )
         // Transform the results to include role name
         return NextResponse.json({
