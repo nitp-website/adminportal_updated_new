@@ -308,13 +308,17 @@ export function AddStaff({ open, onClose, onSuccess }) {
                     <MenuItem value="Assistant Engineer (SG-I)">Assistant Engineer (SG-I)</MenuItem>
                     <MenuItem value="Assistant Engineer (SG-II)">Assistant Engineer (SG-II)</MenuItem>
                     <MenuItem value="Office Attendant">Office Attendant</MenuItem>
+                    <MenuItem value="Office Attendant (SG-I)">Office Attendant (SG-I)</MenuItem>
+                    <MenuItem value="Office Attendant (SG-II)">Office Attendant (SG-II)</MenuItem>
                     <MenuItem value="Sr Office Attendant">Sr Office Attendant</MenuItem>
                     <MenuItem value="Jr Office Attendant">Jr Office Attendant</MenuItem>
                     <MenuItem value="Superintendent">Superintendent</MenuItem>
                     <MenuItem value="Superintendent (SG-I)">Superintendent (SG-I)</MenuItem>
                     <MenuItem value="Superintendent (SG-II)">Superintendent (SG-II)</MenuItem>
-                    <MenuItem value="Jr Assistant Superintendent">Jr Assistant Superintendent</MenuItem>
+                    <MenuItem value="Sr Superintendent">Sr Superintendent</MenuItem>
+                    <MenuItem value="Assistant (SG-I)">Assistant (SG-I)</MenuItem>
                     <MenuItem value="Senior Assistant">Senior Assistant</MenuItem>
+                    <MenuItem value="Junior Assistant">Junior Assistant</MenuItem>
                   </TextField>
                 )}
               </Grid>
