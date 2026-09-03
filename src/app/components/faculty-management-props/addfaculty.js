@@ -15,7 +15,7 @@ import {
 } from '@mui/material'
 import { useState, useEffect } from 'react'
 import { ROLES } from '@/lib/roles'
-import { depList, officerDesignations } from '@/lib/const'
+import { depList, officerDesignations, FacultyDesignations } from '@/lib/const'
 import Toast from '@/app/components/common/Toast'
 
 export function AddFaculty({ open, onClose, onSuccess }) {
@@ -207,12 +207,18 @@ export function AddFaculty({ open, onClose, onSuccess }) {
                 ) : (
                   <TextField
                     fullWidth
+                    select
                     label="Designation"
                     value={formData.designation}
                     onChange={(e) => setFormData(prev => ({ ...prev, designation: e.target.value }))}
                     variant="outlined"
-                    placeholder="Enter designation..."
-                  />
+                  >
+                    {FacultyDesignations.map((designation) => (
+                      <MenuItem key={designation} value={designation}>
+                        {designation}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 )}
               </Grid>
               

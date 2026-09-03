@@ -17,7 +17,7 @@ import {
 import { Delete } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { depList, officerDesignations } from "@/lib/const";
+import { depList, officerDesignations, FacultyDesignations } from "@/lib/const";
 import { ROLES } from "@/lib/roles";
 import Toast from "../common/Toast";
 
@@ -292,6 +292,7 @@ export function EditFaculty({ open, faculty, onClose, onSuccess, onDelete }) {
                   ) : (
                     <TextField
                       fullWidth
+                      select
                       label="Designation"
                       value={formData.designation || ""}
                       onChange={(e) =>
@@ -301,7 +302,19 @@ export function EditFaculty({ open, faculty, onClose, onSuccess, onDelete }) {
                         }))
                       }
                       variant="outlined"
-                    />
+                    >
+                      {formData.designation &&
+                        !FacultyDesignations.includes(formData.designation) && (
+                          <MenuItem key={formData.designation} value={formData.designation}>
+                            {formData.designation}
+                          </MenuItem>
+                        )}
+                      {FacultyDesignations.map((designation) => (
+                        <MenuItem key={designation} value={designation}>
+                          {designation}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   )}
                 </Grid>
 

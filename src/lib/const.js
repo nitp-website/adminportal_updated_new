@@ -96,6 +96,15 @@ export const officerDesignations = [
   'Maintenance Engineer (Civil)'
 ]
 
+export const FacultyDesignations = [
+  'Professor',
+  'Associate Professor',
+  'HOD & Professor',
+  'HOD & Associate Professor',
+  'Assistant Professor(Grade I)',
+  'Assistant Professor (Grade II)',
+]
+
 
 export const StaffdepList = new Map([
   ['arch', 'Architecture'],
