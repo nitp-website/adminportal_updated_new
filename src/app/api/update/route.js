@@ -34,15 +34,20 @@ export async function PUT(request) {
         );
       }
 
-      // Validate mandatory fields for faculty profile updates
-      if (
-        session.user.role !== "SUPER_ADMIN" &&
-        (!params.date_of_birth || !params.date_of_joining || !params.category || !params.gender)
-      ) {
-        return NextResponse.json(
-          { message: "Date of Birth, Date of Joining, Category, and Gender are mandatory." },
-          { status: 400 }
-        );
+      // Validate mandatory fields for faculty profile updates (only when updating basic profile info fields)
+      const isUpdatingProfileInfo =
+        params.date_of_birth !== undefined ||
+        params.date_of_joining !== undefined ||
+        params.category !== undefined ||
+        params.gender !== undefined;
+
+      if (session.user.role !== "SUPER_ADMIN" && isUpdatingProfileInfo) {
+        if (!params.date_of_birth || !params.date_of_joining || !params.category || !params.gender) {
+          return NextResponse.json(
+            { message: "Date of Birth, Date of Joining, Category, and Gender are mandatory." },
+            { status: 400 }
+          );
+        }
       }
 
       let queryParts = [];
@@ -88,6 +93,13 @@ export async function PUT(request) {
           updateValues.push(value);
         }
       });
+      if (queryParts.length === 0) {
+        return NextResponse.json(
+          { message: "No profile fields specified for update." },
+          { status: 400 }
+        );
+      }
+
       // Add email as the last parameter
       updateValues.push(params.email);
 
