@@ -101,8 +101,7 @@ export const FacultyDesignations = [
   'Associate Professor',
   'HOD & Professor',
   'HOD & Associate Professor',
-  'Assistant Professor(Grade I)',
-  'Assistant Professor (Grade II)',
+  'Assistant Professor',
 ]
 
 

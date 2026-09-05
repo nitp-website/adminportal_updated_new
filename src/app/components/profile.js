@@ -2,7 +2,9 @@
 
 import {
     Button,
-    Box
+    Box,
+    Alert,
+    AlertTitle
 } from '@mui/material'
 import { useSession } from 'next-auth/react'
 import { useFacultyData } from '../../context/FacultyDataContext'
@@ -255,8 +257,68 @@ export default function Profilepage() {
     if (session.user?.role === 'CLUB_ADMIN') return <ClubProfileView />
     if (loading) return <Loading />
 
+    const isFieldMissing = (val) => {
+        if (!val) return true
+        if (typeof val === 'string' && (val.trim() === '' || val.startsWith('0000-00-00'))) return true
+        return false
+    }
+
+    const missingProfileFields = []
+    if (isFieldMissing(detail?.profile?.date_of_birth)) missingProfileFields.push('Date of Birth (DOB)')
+    if (isFieldMissing(detail?.profile?.date_of_joining)) missingProfileFields.push('Date of Joining (DOJ)')
+    if (isFieldMissing(detail?.profile?.gender)) missingProfileFields.push('Gender')
+    if (isFieldMissing(detail?.profile?.category)) missingProfileFields.push('Category')
+
+    const isProfileIncomplete = missingProfileFields.length > 0
+
     return (
-                <Profile>
+        <Profile>
+            {isProfileIncomplete && (
+                <Box sx={{ width: '100%', maxWidth: '1200px', margin: '0 auto', pt: 3, px: 2 }}>
+                    <Alert
+                        severity="warning"
+                        variant="filled"
+                        action={
+                            <Button
+                                color="inherit"
+                                size="small"
+                                variant="contained"
+                                onClick={() => handleModalOpen('editProfile')}
+                                sx={{
+                                    backgroundColor: '#ffffff',
+                                    color: '#830001',
+                                    fontWeight: 'bold',
+                                    textTransform: 'none',
+                                    px: 2,
+                                    whiteSpace: 'nowrap',
+                                    '&:hover': {
+                                        backgroundColor: '#f5f5f5'
+                                    }
+                                }}
+                            >
+                                Update Profile
+                            </Button>
+                        }
+                        sx={{
+                            backgroundColor: '#830001',
+                            color: '#ffffff',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 12px rgba(131, 0, 1, 0.25)',
+                            fontSize: '0.95rem',
+                            '& .MuiAlert-icon': {
+                                color: '#ffffff',
+                                fontSize: '1.8rem',
+                                alignItems: 'center'
+                            }
+                        }}
+                    >
+                        <AlertTitle sx={{ fontWeight: 'bold', fontSize: '1.05rem', color: '#ffffff' }}>
+                            Action Required: Incomplete Profile Details
+                        </AlertTitle>
+                        Please fill in your mandatory profile details: <strong>{missingProfileFields.join(', ')}</strong>.
+                    </Alert>
+                </Box>
+            )}
             {/* Profile Image Section */}
                     <div className="faculty-img-row" style={{ 
     display: 'flex', 
