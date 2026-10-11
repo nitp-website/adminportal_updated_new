@@ -9,6 +9,8 @@ import { invalidateProfileIfNeeded, invalidateUserProfile } from '@/lib/profileC
 import { notice_sub_types } from '@/lib/const';
 import { invalidatePublicationsCache } from '@/lib/publicationsCache'
 
+import { getFacultySpecialPermissions } from '@/lib/specialPermissions'
+
 export async function POST(request) {
   const session = await getServerSession(authOptions)
   
@@ -29,12 +31,14 @@ export async function POST(request) {
       console.log('Notice department:', params.data.department)
       console.log('Notice type:', params.data.notice_type)
       
+      const userSpecialPerms = session.user.specialPermissions || await getFacultySpecialPermissions(session.user.email);
       const canCreateNotice = 
         session.user.role === 'SUPER_ADMIN' ||
         (session.user.role === 'DEPT_ADMIN' && params.data.department === session.user.department) ||
         session.user.role === 'ACADEMIC_ADMIN' ||
         (session.user.role === 'TENDER_NOTICE_ADMIN' && params.data.notice_type === 'tender') ||
-        (session.user.role === 'EXAM_ADMIN' && params.data.notice_type === 'exam')
+        (session.user.role === 'EXAM_ADMIN' && params.data.notice_type === 'exam') ||
+        (Array.isArray(userSpecialPerms) && userSpecialPerms.includes(params.data.notice_type?.toLowerCase()))
       
       console.log('Can create notice:', canCreateNotice)
       

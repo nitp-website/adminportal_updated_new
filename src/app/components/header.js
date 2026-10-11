@@ -220,7 +220,14 @@ export default function Header() {
 
   const getMenuItems = () => {
     if (!session?.user?.numericRole) return []
-    return menuItems[session.user.numericRole] || []
+    const items = [...(menuItems[session.user.numericRole] || [])]
+
+    // If user has special notice permissions and doesn't already have 'Notice' in their menu
+    if (session?.user?.specialPermissions?.length > 0 && !items.some(item => item.href === '/notice')) {
+      items.push({ text: 'Notice', href: '/notice', icon: <NotificationsIcon /> })
+    }
+
+    return items
   }
 
   const handleSignOut = () => {

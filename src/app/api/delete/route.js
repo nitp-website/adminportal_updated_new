@@ -7,6 +7,7 @@ import { deleteS3File, extractS3KeyFromUrl } from '@/lib/utils'
 import { invalidateProfileIfNeeded } from '@/lib/profileCache'
 import { invalidatePublicationsCache } from '@/lib/publicationsCache';
 import { PUBLICATION_TYPES } from '../../../lib/const'
+import { getFacultySpecialPermissions } from '@/lib/specialPermissions'
 
 export async function POST(request) {
   const session = await getServerSession(authOptions)
@@ -46,6 +47,7 @@ export async function POST(request) {
       console.log('User email:', session.user.email)
       console.log('Notice email:', noticeData.email)
 
+      const userSpecialPerms = session.user.specialPermissions || await getFacultySpecialPermissions(session.user.email);
       const canDeleteNotice = 
         session.user.role === 'SUPER_ADMIN' ||
         (session.user.role === 'ACADEMIC_ADMIN' && noticeData.notice_type === 'academics') ||
@@ -53,7 +55,8 @@ export async function POST(request) {
          noticeData.notice_type === 'department' && 
          noticeData.department === session.user.department) ||
         (session.user.role === 'TENDER_NOTICE_ADMIN' && noticeData.notice_type === 'tender') ||
-        (session.user.role === 'EXAM_ADMIN' && noticeData.notice_type === 'exam')
+        (session.user.role === 'EXAM_ADMIN' && noticeData.notice_type === 'exam') ||
+        (Array.isArray(userSpecialPerms) && userSpecialPerms.includes(noticeData.notice_type?.toLowerCase()))
       
       console.log('Can delete notice:', canDeleteNotice)
       

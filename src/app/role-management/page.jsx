@@ -31,9 +31,11 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import GroupIcon from "@mui/icons-material/Group";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import Loading from "../components/loading";
 import Sign from "../components/signin";
 import Unauthorise from "../components/unauthorise";
+import PermissionTab from "../components/permission-management/PermissionTab";
 
 export default function RoleManagement() {
   const { data: session, status } = useSession();
@@ -371,6 +373,11 @@ export default function RoleManagement() {
               label="Designation Management"
               iconPosition="start"
             />
+            <Tab
+              icon={<VpnKeyIcon />}
+              label="Notice Permissions"
+              iconPosition="start"
+            />
           </Tabs>
 
           <Divider />
@@ -607,6 +614,11 @@ export default function RoleManagement() {
                 </DragDropContext>
               )}
             </Box>
+          )}
+
+          {/* Special Notice Permission Management Tab */}
+          {activeTab === 2 && (
+            <PermissionTab showSnackbar={showSnackbar} />
           )}
         </Paper>
 

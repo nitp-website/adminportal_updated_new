@@ -1,6 +1,7 @@
 import GoogleProvider from 'next-auth/providers/google'
 import { ROLES } from '@/lib/roles'
 import { query } from '@/lib/db'
+import { getFacultySpecialPermissions } from '@/lib/specialPermissions'
 export const authOptions = {
     providers: [
       GoogleProvider({
@@ -41,6 +42,12 @@ export const authOptions = {
           user.administration = userData.administration
           user.designation = userData.designation
           user.clubId = userData.club_id ? parseInt(userData.club_id, 10) : null
+          
+          try {
+            user.specialPermissions = await getFacultySpecialPermissions(profile.email)
+          } catch (e) {
+            user.specialPermissions = []
+          }
 
           if (numericRole === ROLES.CLUB_ADMIN) {
             if (!user.clubId) {
@@ -79,6 +86,7 @@ export const authOptions = {
           token.designation = user.designation
           token.clubId = user.clubId ?? null
           token.clubLoginId = user.clubLoginId ?? null
+          token.specialPermissions = user.specialPermissions ?? []
         }
         return token
       },
@@ -93,6 +101,7 @@ export const authOptions = {
           session.user.designation = token.designation
           session.user.clubId = token.clubId ?? null
           session.user.clubLoginId = token.clubLoginId ?? null
+          session.user.specialPermissions = token.specialPermissions ?? []
         }
         return session
       }

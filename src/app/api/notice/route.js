@@ -134,6 +134,7 @@ export async function POST(request) {
       end_date,
       department,
       notice_type,
+      notice_types,
       from,
       to,
       keyword = "",
@@ -179,6 +180,27 @@ export async function POST(request) {
          ORDER BY openDate DESC 
          LIMIT ${limit} OFFSET ${offset}`,
         ["department", department],
+      );
+    } else if (notice_types && Array.isArray(notice_types) && notice_types.length > 0) {
+      const limit = Math.max(1, Math.min(100, to - from));
+      const offset = Math.max(0, from);
+      const placeholders = notice_types.map(() => '?').join(',');
+      results = await query(
+        `SELECT * FROM notices 
+         WHERE notice_type IN (${placeholders})
+         ORDER BY openDate DESC 
+         LIMIT ${limit} OFFSET ${offset}`,
+        notice_types,
+      );
+    } else if (notice_type && notice_type !== "general" && notice_type !== "all") {
+      const limit = Math.max(1, Math.min(100, to - from));
+      const offset = Math.max(0, from);
+      results = await query(
+        `SELECT * FROM notices 
+         WHERE notice_type = ?
+         ORDER BY openDate DESC 
+         LIMIT ${limit} OFFSET ${offset}`,
+        [notice_type],
       );
     } else {
       switch (type) {

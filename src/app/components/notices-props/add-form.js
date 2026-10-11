@@ -46,11 +46,13 @@ export const AddForm = ({ handleClose, modal }) => {
         type: session?.user?.role === 'ACADEMIC_ADMIN' ? 'academics' : 
               session?.user?.role === 'DEPT_ADMIN' ? 'department' :
               session?.user?.role === 'TENDER_NOTICE_ADMIN' ? 'tender' :
-              session?.user?.role === 'EXAM_ADMIN' ? 'exam' : 'general',
+              session?.user?.role === 'EXAM_ADMIN' ? 'exam' : 
+              session?.user?.specialPermissions?.length > 0 ? session.user.specialPermissions[0] : 'general',
         category: session?.user?.role === 'ACADEMIC_ADMIN' ? 'academics' : 
                  session?.user?.role === 'DEPT_ADMIN' ? 'department' :
                  session?.user?.role === 'TENDER_NOTICE_ADMIN' ? 'tender' :
-                 session?.user?.role === 'EXAM_ADMIN' ? 'exam' : 'general',
+                 session?.user?.role === 'EXAM_ADMIN' ? 'exam' : 
+                 session?.user?.specialPermissions?.length > 0 ? session.user.specialPermissions[0] : 'general',
         important: false,
         is_new: false,
         department: session?.user?.role === 'DEPT_ADMIN' ? session.user.department : null,
@@ -218,6 +220,16 @@ export const AddForm = ({ handleClose, modal }) => {
                 <MenuItem key="exam" value="exam">Examination Section</MenuItem>
             ];
         }
+        if (session?.user?.specialPermissions?.length > 0) {
+            const items = [];
+            if (session.user.specialPermissions.includes('admissions')) {
+                items.push(<MenuItem key="admissions" value="admissions">Admissions</MenuItem>);
+            }
+            if (session.user.specialPermissions.includes('job')) {
+                items.push(<MenuItem key="job" value="job">JOB / Recruitment</MenuItem>);
+            }
+            return items;
+        }
         return [
             <MenuItem key="general" value="general">General</MenuItem>,
             <MenuItem key="department" value="department">Department</MenuItem>,
@@ -373,7 +385,7 @@ export const AddForm = ({ handleClose, modal }) => {
                                         onChange={handleChange}
                                         defaultValue={session?.user?.role === 'ACADEMIC_ADMIN' ? 'academics' : 'general'}
                                         label="Notice Type"
-                                        disabled={session?.user?.role === 'DEPT_ADMIN' || session?.user?.role === 'ACADEMIC_ADMIN' || session?.user?.role === 'TENDER_NOTICE_ADMIN' || session?.user?.role === 'EXAM_ADMIN'}
+                                        disabled={session?.user?.role === 'DEPT_ADMIN' || session?.user?.role === 'ACADEMIC_ADMIN' || session?.user?.role === 'TENDER_NOTICE_ADMIN' || session?.user?.role === 'EXAM_ADMIN' || (session?.user?.specialPermissions?.length === 1)}
                                     >
                                         {getNoticeTypeOptions()}
                                     </Select>

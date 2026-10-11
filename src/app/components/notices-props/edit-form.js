@@ -429,7 +429,8 @@ export const EditForm = ({ data, handleClose, modal }) => {
                                             session?.user?.role === 'DEPT_ADMIN' ||
                                             session?.user?.role === 'ACADEMIC_ADMIN' ||
                                             session?.user?.role === 'TENDER_NOTICE_ADMIN' ||
-                                            session?.user?.role === 'EXAM_ADMIN'
+                                            session?.user?.role === 'EXAM_ADMIN' ||
+                                            (session?.user?.specialPermissions?.length === 1)
                                         }
                                         required
                                     >
@@ -441,6 +442,15 @@ export const EditForm = ({ data, handleClose, modal }) => {
                                             <MenuItem value="tender">Tender</MenuItem>
                                         ) : session?.user?.role === 'EXAM_ADMIN' ? (
                                             <MenuItem value="exam">Examination Section</MenuItem>
+                                        ) : session?.user?.specialPermissions?.length > 0 ? (
+                                            [
+                                                session.user.specialPermissions.includes('admissions') && (
+                                                    <MenuItem value="admissions" key="admissions">Admissions</MenuItem>
+                                                ),
+                                                session.user.specialPermissions.includes('job') && (
+                                                    <MenuItem value="job" key="job">JOB / Recruitment</MenuItem>
+                                                )
+                                            ].filter(Boolean)
                                         ) : [
                                             <MenuItem value="general" key="general">General</MenuItem>,
                                             <MenuItem value="department" key="department">Department</MenuItem>,

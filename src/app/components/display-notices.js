@@ -162,7 +162,8 @@ const Notice = ({ detail }) => {
                             (session?.user?.role === 'ACADEMIC_ADMIN' && detail.notice_type === 'academics') ||
                             (session?.user?.role === 'DEPT_ADMIN' && detail.notice_type === 'department' && detail.department === session.user.department) ||
                             (session?.user?.role === 'TENDER_NOTICE_ADMIN' && detail.notice_type === 'tender') ||
-                            (session?.user?.role === 'EXAM_ADMIN' && detail.notice_type === 'exam')) && (
+                            (session?.user?.role === 'EXAM_ADMIN' && detail.notice_type === 'exam') ||
+                            (session?.user?.specialPermissions && session.user.specialPermissions.includes(detail.notice_type?.toLowerCase()))) && (
                             <>
                                 <Tooltip title="Edit Notice">
                                     <IconButton
@@ -225,6 +226,7 @@ const DataDisplay = ({ data }) => {
         if (!filterQuery) {
             let noticeType;
             let department;
+            let noticeTypes;
             if (session?.user?.role === 'ACADEMIC_ADMIN') {
                 noticeType = 'academics';
             } else if (session?.user?.role === 'DEPT_ADMIN') {
@@ -234,6 +236,12 @@ const DataDisplay = ({ data }) => {
                 noticeType = 'tender';
             } else if (session?.user?.role === 'EXAM_ADMIN') {
                 noticeType = 'exam';
+            } else if (session?.user?.specialPermissions?.length > 0) {
+                if (session.user.specialPermissions.length === 1) {
+                    noticeType = session.user.specialPermissions[0];
+                } else {
+                    noticeTypes = session.user.specialPermissions;
+                }
             }
 
             fetch('/api/notice', {
@@ -246,15 +254,21 @@ const DataDisplay = ({ data }) => {
                     to: (page + 1) * rowsPerPage,
                     type: 'between',
                     notice_type: noticeType,
+                    notice_types: noticeTypes,
                     notice_sub_type:filterQuery?.notice_sub_type||null,
                     department: department
                 })
             })
             .then(res => res.json())
             .then(data => {
-                const sortedData = [...data].sort((a, b) => 
+                let sortedData = [...data].sort((a, b) => 
                     new Date(b.updatedAt) - new Date(a.updatedAt)
                 );
+                if (session?.user?.specialPermissions?.length > 0) {
+                    sortedData = sortedData.filter(notice => 
+                        session.user.specialPermissions.includes(notice.notice_type?.toLowerCase())
+                    );
+                }
                 setDetails(sortedData);
             })
             .catch(err => console.error('Error fetching notices:', err));
@@ -272,6 +286,10 @@ const DataDisplay = ({ data }) => {
                 filteredData = filteredData.filter(notice => notice.notice_type === 'tender');
             } else if (session?.user?.role === 'EXAM_ADMIN') {
                 filteredData = filteredData.filter(notice => notice.notice_type === 'exam');
+            } else if (session?.user?.specialPermissions?.length > 0) {
+                filteredData = filteredData.filter(notice => 
+                    session.user.specialPermissions.includes(notice.notice_type?.toLowerCase())
+                );
             } else if (filterQuery.notice_type && filterQuery.notice_type !== 'all') {
                 filteredData = filteredData.filter(notice => notice.notice_type === filterQuery.notice_type);
             }
@@ -293,15 +311,26 @@ const DataDisplay = ({ data }) => {
         }
     }, [page, rowsPerPage, filterQuery, initialData, session]);
 
+    const getHeadingTitle = () => {
+        if (session?.user?.role === 'ACADEMIC_ADMIN') return 'Academic Notices';
+        if (session?.user?.role === 'DEPT_ADMIN') return `${session.user.department} Notices`;
+        if (session?.user?.role === 'TENDER_NOTICE_ADMIN') return 'Tender Notices';
+        if (session?.user?.role === 'EXAM_ADMIN') return 'Exam Notices';
+        if (session?.user?.specialPermissions?.length > 0) {
+            const hasAdm = session.user.specialPermissions.includes('admissions');
+            const hasJob = session.user.specialPermissions.includes('job');
+            if (hasAdm && hasJob) return 'Admissions & Recruitment Notices';
+            if (hasAdm) return 'Admissions Notices';
+            if (hasJob) return 'Recruitment (Job) Notices';
+        }
+        return 'Recent Notices';
+    };
+
     return (
         <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h4" sx={{ color: '#333', fontWeight: 600 }}>
-                    {session?.user?.role === 'ACADEMIC_ADMIN' ? 'Academic Notices' : 
-                     session?.user?.role === 'DEPT_ADMIN' ? `${session.user.department} Notices` :
-                     session?.user?.role === 'TENDER_NOTICE_ADMIN' ? 'Tender Notices' : 
-                     session?.user?.role === 'EXAM_ADMIN' ? 'Exam Notices' :
-                     'Recent Notices'}
+                    {getHeadingTitle()}
                 </Typography>
                 
                 <Box>
@@ -313,7 +342,7 @@ const DataDisplay = ({ data }) => {
                 >
                     Add New Notice
                 </Button>
-                    {session?.user?.role !== 'ACADEMIC_ADMIN' && session?.user?.role !== 'DEPT_ADMIN' && session?.user?.role !== 'TENDER_NOTICE_ADMIN' && session?.user?.role !== 'EXAM_ADMIN' && (
+                    {session?.user?.role !== 'ACADEMIC_ADMIN' && session?.user?.role !== 'DEPT_ADMIN' && session?.user?.role !== 'TENDER_NOTICE_ADMIN' && session?.user?.role !== 'EXAM_ADMIN' && !session?.user?.specialPermissions?.length && (
                 <Filter type="notice" setEntries={setFilterQuery} style={{ color: '#830001' }}/>
                     )}
                 </Box>

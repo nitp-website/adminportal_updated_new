@@ -24,6 +24,7 @@ export default function Page() {
         if (status === 'authenticated') {
             const userRole = session?.user?.role;
             const userDepartment = session?.user?.department;
+            const specialPerms = session?.user?.specialPermissions || [];
 
             let body = { from: 0, to: 15, type: "between" };
 
@@ -46,6 +47,20 @@ export default function Page() {
                     type: 'between',
                     notice_type: 'exam'
                 };
+            } else if (specialPerms.length > 0) {
+                if (specialPerms.length === 1) {
+                    body = {
+                        ...body,
+                        type: 'between',
+                        notice_type: specialPerms[0]
+                    };
+                } else {
+                    body = {
+                        ...body,
+                        type: 'between',
+                        notice_types: specialPerms
+                    };
+                }
             }
 
             fetch('/api/notice', {
@@ -66,7 +81,7 @@ export default function Page() {
                     setIsLoading(false)
                 })
         }
-    }, [status])
+    }, [status, session])
 
     // Handle loading state
     if (status === 'loading') {
@@ -78,8 +93,17 @@ export default function Page() {
         return <Sign />
     }
 
+    const hasSpecialPerms = session?.user?.specialPermissions && session.user.specialPermissions.length > 0;
+
     // Handle authenticated state
-    if (session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "ACADEMIC_ADMIN" || session?.user?.role === "DEPT_ADMIN" || session?.user?.role === "TENDER_NOTICE_ADMIN" || session?.user?.role === "EXAM_ADMIN") {
+    if (
+        session?.user?.role === "SUPER_ADMIN" || 
+        session?.user?.role === "ACADEMIC_ADMIN" || 
+        session?.user?.role === "DEPT_ADMIN" || 
+        session?.user?.role === "TENDER_NOTICE_ADMIN" || 
+        session?.user?.role === "EXAM_ADMIN" ||
+        hasSpecialPerms
+    ) {
         return (
             <Layout>
                 <Wrap>

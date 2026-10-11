@@ -7,6 +7,7 @@ import { invalidatePublicationsCache } from '@/lib/publicationsCache';
 import { PUBLICATION_TYPES } from '../../../lib/const'
 
 import { notice_sub_types } from '@/lib/const';
+import { getFacultySpecialPermissions } from '@/lib/specialPermissions';
 export async function PUT(request) {
   try {
     // Use original authentication for now
@@ -158,6 +159,7 @@ export async function PUT(request) {
 
 
 
+      const userSpecialPerms = session.user.specialPermissions || await getFacultySpecialPermissions(session.user.email);
       const canUpdateNotice = 
         session.user.role === 'SUPER_ADMIN' ||
         (session.user.role === 'ACADEMIC_ADMIN' && noticeData.notice_type === 'academics') ||
@@ -165,7 +167,8 @@ export async function PUT(request) {
          noticeData.notice_type === 'department' && 
          noticeData.department === session.user.department) ||
         (session.user.role === 'TENDER_NOTICE_ADMIN' && noticeData.notice_type === 'tender') ||
-        (session.user.role === 'EXAM_ADMIN' && noticeData.notice_type === 'exam' && (!params.data.notice_type || params.data.notice_type === 'exam'))
+        (session.user.role === 'EXAM_ADMIN' && noticeData.notice_type === 'exam' && (!params.data.notice_type || params.data.notice_type === 'exam')) ||
+        (Array.isArray(userSpecialPerms) && userSpecialPerms.includes(noticeData.notice_type?.toLowerCase()))
       
       console.log('Can update notice:', canUpdateNotice)
       
