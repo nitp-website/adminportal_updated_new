@@ -38,25 +38,72 @@ const getTodayDate = () => {
 export const AddForm = ({ handleClose, modal }) => {
     const { data: session } = useSession()
     const [submitting, setSubmitting] = useState(false)
+
+    // Calculate all authorized notice types for current user
+    const allowedNoticeTypes = useMemo(() => {
+        if (!session?.user) return [];
+        if (session.user.role === 'SUPER_ADMIN') {
+            return [
+                { key: 'general', label: 'General' },
+                { key: 'department', label: 'Department' },
+                { key: 'tender', label: 'Tender' },
+                ...Array.from(administrationList).map(([key, value]) => ({ key, label: value }))
+            ];
+        }
+
+        const baseKeys = [];
+        if (session.user.role === 'ACADEMIC_ADMIN') {
+            baseKeys.push('academics', 'department');
+        } else if (session.user.role === 'DEPT_ADMIN') {
+            baseKeys.push('department');
+        } else if (session.user.role === 'TENDER_NOTICE_ADMIN') {
+            baseKeys.push('tender');
+        } else if (session.user.role === 'EXAM_ADMIN') {
+            baseKeys.push('exam');
+        }
+
+        const special = (session.user.specialPermissions || []).map((p) => String(p).toLowerCase());
+        const combinedKeys = Array.from(new Set([...baseKeys, ...special]));
+
+        const labelMap = {
+            general: 'General',
+            department: 'Department',
+            tender: 'Tender',
+            exam: 'Examination Section',
+            academics: 'Academics',
+            admissions: 'Admissions',
+            job: 'JOB / Recruitment',
+            academicintranet: 'Intranet - Academic and Exam Notice',
+            genralintranet: 'Intranet - General Notice',
+            bogminutes: 'BOG/FC/BWC Minutes',
+            senateminutes: 'Senate Minutes',
+            annualreport: 'Annual Reports',
+            newcampus: 'New Campus'
+        };
+
+        return combinedKeys.map((key) => ({
+            key,
+            label: labelMap[key] || administrationList.get(key) || (key.charAt(0).toUpperCase() + key.slice(1))
+        }));
+    }, [session]);
+
+    const initialType = allowedNoticeTypes[0]?.key || (
+        session?.user?.role === 'ACADEMIC_ADMIN' ? 'academics' : 
+        session?.user?.role === 'DEPT_ADMIN' ? 'department' :
+        session?.user?.role === 'TENDER_NOTICE_ADMIN' ? 'tender' :
+        session?.user?.role === 'EXAM_ADMIN' ? 'exam' : 'general'
+    );
+
     const [content, setContent] = useState({
         title: '',
         openDate: getTodayDate(),
         closeDate: getDefaultCloseDate(),
-        // category is not used in API - left as is for now
-        type: session?.user?.role === 'ACADEMIC_ADMIN' ? 'academics' : 
-              session?.user?.role === 'DEPT_ADMIN' ? 'department' :
-              session?.user?.role === 'TENDER_NOTICE_ADMIN' ? 'tender' :
-              session?.user?.role === 'EXAM_ADMIN' ? 'exam' : 
-              session?.user?.specialPermissions?.length > 0 ? session.user.specialPermissions[0] : 'general',
-        category: session?.user?.role === 'ACADEMIC_ADMIN' ? 'academics' : 
-                 session?.user?.role === 'DEPT_ADMIN' ? 'department' :
-                 session?.user?.role === 'TENDER_NOTICE_ADMIN' ? 'tender' :
-                 session?.user?.role === 'EXAM_ADMIN' ? 'exam' : 
-                 session?.user?.specialPermissions?.length > 0 ? session.user.specialPermissions[0] : 'general',
+        type: initialType,
+        category: initialType,
         important: false,
         is_new: false,
-        department: session?.user?.role === 'DEPT_ADMIN' ? session.user.department : null,
-        isDept: session?.user?.role === 'DEPT_ADMIN' ? 1 : 0,
+        department: initialType === 'department' ? (session?.user?.department || null) : null,
+        isDept: initialType === 'department' ? 1 : 0,
         notice_sub_type: '',
         additional_title: ''
     })
@@ -66,6 +113,23 @@ export const AddForm = ({ handleClose, modal }) => {
     // File Management State
     const [directories, setDirectories] = useState([]);
     const [mappings, setMappings] = useState([]);
+
+    useEffect(() => {
+        if (modal && allowedNoticeTypes.length > 0) {
+            const currentIsValid = allowedNoticeTypes.some((t) => t.key === content.type);
+            if (!currentIsValid) {
+                const defaultType = allowedNoticeTypes[0].key;
+                setContent((prev) => ({
+                    ...prev,
+                    type: defaultType,
+                    category: defaultType,
+                    department: defaultType === 'department' ? (session?.user?.department || null) : null,
+                    isDept: defaultType === 'department' ? 1 : 0,
+                    notice_sub_type: '',
+                }));
+            }
+        }
+    }, [modal, allowedNoticeTypes]);
 
     useEffect(() => {
         // Fetch active directories and mappings
@@ -102,9 +166,17 @@ export const AddForm = ({ handleClose, modal }) => {
         const { name, type, checked, value } = e.target
         let v = type === 'checkbox' ? (checked ? 1 : 0) : value
 
-        // If user selects a new notice type, reset sub_type
+        // If user selects a new notice type, reset sub_type and handle department
         if (name === "type") {
-            setContent({ ...content, [name]: v, notice_sub_type: '' })
+            const isDeptType = v === 'department';
+            setContent({
+                ...content,
+                [name]: v,
+                category: v,
+                notice_sub_type: '',
+                department: isDeptType ? (content.department || session?.user?.department || '') : null,
+                isDept: isDeptType ? 1 : 0,
+            });
         } else {
             setContent({ ...content, [name]: v })
         }
@@ -133,8 +205,6 @@ export const AddForm = ({ handleClose, modal }) => {
             });
         });
     }, [directories, mappings, content.type, content.notice_sub_type]);
-
-
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -202,42 +272,6 @@ export const AddForm = ({ handleClose, modal }) => {
         } finally {
             setSubmitting(false)
         }
-    }
-
-    const getNoticeTypeOptions = () => {
-        if (session?.user?.role === 'ACADEMIC_ADMIN') {
-            return [
-                <MenuItem key="academics" value="academics">Academics</MenuItem>
-            ];
-        }
-        if (session?.user?.role === 'TENDER_NOTICE_ADMIN') {
-            return [
-                <MenuItem key="tender" value="tender">Tender</MenuItem>
-            ];
-        }
-        if (session?.user?.role === 'EXAM_ADMIN') {
-            return [
-                <MenuItem key="exam" value="exam">Examination Section</MenuItem>
-            ];
-        }
-        if (session?.user?.specialPermissions?.length > 0) {
-            const items = [];
-            if (session.user.specialPermissions.includes('admissions')) {
-                items.push(<MenuItem key="admissions" value="admissions">Admissions</MenuItem>);
-            }
-            if (session.user.specialPermissions.includes('job')) {
-                items.push(<MenuItem key="job" value="job">JOB / Recruitment</MenuItem>);
-            }
-            return items;
-        }
-        return [
-            <MenuItem key="general" value="general">General</MenuItem>,
-            <MenuItem key="department" value="department">Department</MenuItem>,
-            <MenuItem key="tender" value="tender">Tender</MenuItem>,
-            ...Array.from(administrationList).map(([key, value]) => (
-                <MenuItem key={key} value={key}>{value}</MenuItem>
-            ))
-        ];
     }
 
     return (
@@ -383,11 +417,14 @@ export const AddForm = ({ handleClose, modal }) => {
                                         name="type"
                                         value={content.type}
                                         onChange={handleChange}
-                                        defaultValue={session?.user?.role === 'ACADEMIC_ADMIN' ? 'academics' : 'general'}
                                         label="Notice Type"
-                                        disabled={session?.user?.role === 'DEPT_ADMIN' || session?.user?.role === 'ACADEMIC_ADMIN' || session?.user?.role === 'TENDER_NOTICE_ADMIN' || session?.user?.role === 'EXAM_ADMIN' || (session?.user?.specialPermissions?.length === 1)}
+                                        disabled={session?.user?.role !== 'SUPER_ADMIN' && allowedNoticeTypes.length <= 1}
                                     >
-                                        {getNoticeTypeOptions()}
+                                        {allowedNoticeTypes.map((opt) => (
+                                            <MenuItem key={opt.key} value={opt.key}>
+                                                {opt.label}
+                                            </MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                             </Grid>
@@ -397,10 +434,11 @@ export const AddForm = ({ handleClose, modal }) => {
                                         <InputLabel>Department</InputLabel>
                                         <Select
                                             name="department"
-                                            value={content.department}
+                                            value={content.department || ''}
                                             onChange={handleChange}
                                             label="Department"
                                             disabled={session?.user?.role === 'DEPT_ADMIN'}
+                                            required
                                         >
                                             {Array.from(depList).map(([key, value]) => (
                                                 <MenuItem key={value} value={value}>{value}</MenuItem>

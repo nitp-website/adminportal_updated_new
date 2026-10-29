@@ -19,11 +19,9 @@ import {
     Visibility as VisibilityIcon,
     Delete as DeleteIcon,
     Star as StarIcon,
-    FiberNew as FiberNewIcon,
-    Description as DescriptionIcon,
     AttachFile as AttachFileIcon
 } from '@mui/icons-material'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { AddForm } from './notices-props/add-form'
 import { EditForm } from './notices-props/edit-form'
 import { useSession } from 'next-auth/react'
@@ -37,42 +35,63 @@ const formatDate = (dateValue) => {
     if (!dateValue) return 'N/A'
     
     let date
-    // Handle different date formats
     if (typeof dateValue === 'string') {
-        // If it's a string timestamp, convert to number first
         const timestamp = parseInt(dateValue, 10)
         if (!isNaN(timestamp)) {
             date = new Date(timestamp)
-            console.log('Parsing string timestamp:', dateValue, '-> Date:', date.toISOString())
         } else {
-            // Try parsing as date string
             date = new Date(dateValue)
-            console.log('Parsing date string:', dateValue, '-> Date:', date.toISOString())
         }
     } else if (typeof dateValue === 'number') {
-        // If it's already a number timestamp
         date = new Date(dateValue)
-        console.log('Parsing number timestamp:', dateValue, '-> Date:', date.toISOString())
     } else {
-        // If it's already a Date object
         date = dateValue
     }
     
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-        console.error('Invalid date:', dateValue)
+    if (isNaN(date?.getTime())) {
         return 'Invalid Date'
     }
     
-    const formatted = date.toLocaleDateString('en-GB', {
+    return date.toLocaleDateString('en-GB', {
         day: '2-digit',
         month: '2-digit', 
         year: 'numeric'
     })
-    
-    console.log('Final formatted date:', formatted)
-    return formatted
 }
+
+// Determines whether the current user has permission to edit/delete a given notice
+const canUserManageNotice = (notice, session) => {
+    if (!session?.user) return false;
+    if (session.user.role === 'SUPER_ADMIN') return true;
+
+    const nType = notice.notice_type?.toLowerCase();
+    const specialPerms = (session.user.specialPermissions || []).map((p) => String(p).toLowerCase());
+
+    // 1. Granted via special permissions
+    if (specialPerms.includes(nType)) return true;
+
+    // 2. Academic Admin can manage academic and department notices
+    if (session.user.role === 'ACADEMIC_ADMIN' && (nType === 'academics' || nType === 'department')) {
+        return true;
+    }
+
+    // 3. Department Admin can manage department notices of their own department
+    if (session.user.role === 'DEPT_ADMIN' && nType === 'department') {
+        return notice.department === session.user.department;
+    }
+
+    // 4. Tender Admin
+    if (session.user.role === 'TENDER_NOTICE_ADMIN' && nType === 'tender') {
+        return true;
+    }
+
+    // 5. Exam Admin
+    if (session.user.role === 'EXAM_ADMIN' && nType === 'exam') {
+        return true;
+    }
+
+    return false;
+};
 
 const Notice = ({ detail }) => {
     const [editModal, setEditModal] = useState(false)
@@ -81,6 +100,8 @@ const Notice = ({ detail }) => {
     const { data: session } = useSession()
     const updatedAt = formatDate(detail.updatedAt)
     const openDate = formatDate(detail.openDate)
+
+    const canManage = canUserManageNotice(detail, session);
 
     return (
         <>
@@ -158,17 +179,12 @@ const Notice = ({ detail }) => {
                                 <VisibilityIcon fontSize="small" />
                             </IconButton>
                         </Tooltip>
-                        {(session?.user?.role === 'SUPER_ADMIN' ||
-                            (session?.user?.role === 'ACADEMIC_ADMIN' && detail.notice_type === 'academics') ||
-                            (session?.user?.role === 'DEPT_ADMIN' && detail.notice_type === 'department' && detail.department === session.user.department) ||
-                            (session?.user?.role === 'TENDER_NOTICE_ADMIN' && detail.notice_type === 'tender') ||
-                            (session?.user?.role === 'EXAM_ADMIN' && detail.notice_type === 'exam') ||
-                            (session?.user?.specialPermissions && session.user.specialPermissions.includes(detail.notice_type?.toLowerCase()))) && (
+                        {canManage && (
                             <>
                                 <Tooltip title="Edit Notice">
                                     <IconButton
                                         size="small" 
-                                        onClick={() => setEditModal(true)}
+                                        onClick={() => setEditModal(true)} 
                                         sx={{ color: '#830001' }}
                                     >
                                         <EditIcon fontSize="small" />
@@ -177,7 +193,7 @@ const Notice = ({ detail }) => {
                                 <Tooltip title="Delete Notice">
                                     <IconButton
                                         size="small" 
-                                        onClick={() => setDeleteModal(true)}
+                                        onClick={() => setDeleteModal(true)} 
                                         sx={{ 
                                             color: '#d32f2f',
                                             '&:hover': {
@@ -222,25 +238,48 @@ const DataDisplay = ({ data }) => {
     const [filterQuery, setFilterQuery] = useState(null)
     const [addModal, setAddModal] = useState(false)
 
+    // Calculate all authorized notice types for current user
+    const allowedNoticeTypes = useMemo(() => {
+        if (!session?.user) return [];
+        if (session.user.role === 'SUPER_ADMIN') return [];
+
+        const baseTypes = [];
+        if (session.user.role === 'ACADEMIC_ADMIN') baseTypes.push('academics', 'department');
+        else if (session.user.role === 'DEPT_ADMIN') baseTypes.push('department');
+        else if (session.user.role === 'TENDER_NOTICE_ADMIN') baseTypes.push('tender');
+        else if (session.user.role === 'EXAM_ADMIN') baseTypes.push('exam');
+
+        const special = (session.user.specialPermissions || []).map((p) => String(p).toLowerCase());
+        return Array.from(new Set([...baseTypes, ...special]));
+    }, [session]);
+
+    useEffect(() => {
+        if (data) {
+            setInitialData(data);
+            setDetails(data);
+        }
+    }, [data]);
+
     useEffect(() => {
         if (!filterQuery) {
-            let noticeType;
-            let department;
-            let noticeTypes;
-            if (session?.user?.role === 'ACADEMIC_ADMIN') {
-                noticeType = 'academics';
-            } else if (session?.user?.role === 'DEPT_ADMIN') {
-                noticeType = 'department';
-                department = session.user.department;
-            } else if (session?.user?.role === 'TENDER_NOTICE_ADMIN') {
-                noticeType = 'tender';
-            } else if (session?.user?.role === 'EXAM_ADMIN') {
-                noticeType = 'exam';
-            } else if (session?.user?.specialPermissions?.length > 0) {
-                if (session.user.specialPermissions.length === 1) {
-                    noticeType = session.user.specialPermissions[0];
+            let body = {
+                from: page * rowsPerPage,
+                to: (page + 1) * rowsPerPage,
+                type: 'between',
+                notice_sub_type: filterQuery?.notice_sub_type || null,
+            };
+
+            if (session?.user?.role !== 'SUPER_ADMIN' && allowedNoticeTypes.length > 0) {
+                if (allowedNoticeTypes.length === 1) {
+                    body.notice_type = allowedNoticeTypes[0];
+                    if (allowedNoticeTypes[0] === 'department' && session?.user?.role === 'DEPT_ADMIN') {
+                        body.department = session.user.department;
+                    }
                 } else {
-                    noticeTypes = session.user.specialPermissions;
+                    body.notice_types = allowedNoticeTypes;
+                    if (session?.user?.role === 'DEPT_ADMIN') {
+                        body.department = session.user.department;
+                    }
                 }
             }
 
@@ -249,25 +288,25 @@ const DataDisplay = ({ data }) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    from: page * rowsPerPage,
-                    to: (page + 1) * rowsPerPage,
-                    type: 'between',
-                    notice_type: noticeType,
-                    notice_types: noticeTypes,
-                    notice_sub_type:filterQuery?.notice_sub_type||null,
-                    department: department
-                })
+                body: JSON.stringify(body)
             })
             .then(res => res.json())
-            .then(data => {
-                let sortedData = [...data].sort((a, b) => 
+            .then(fetchedData => {
+                const list = Array.isArray(fetchedData) ? fetchedData : [];
+                let sortedData = [...list].sort((a, b) => 
                     new Date(b.updatedAt) - new Date(a.updatedAt)
                 );
-                if (session?.user?.specialPermissions?.length > 0) {
-                    sortedData = sortedData.filter(notice => 
-                        session.user.specialPermissions.includes(notice.notice_type?.toLowerCase())
-                    );
+                
+                // Client-side safety filter for restricted roles
+                if (session?.user?.role !== 'SUPER_ADMIN' && allowedNoticeTypes.length > 0) {
+                    sortedData = sortedData.filter(notice => {
+                        const nType = notice.notice_type?.toLowerCase();
+                        if (!allowedNoticeTypes.includes(nType)) return false;
+                        if (nType === 'department' && session?.user?.role === 'DEPT_ADMIN') {
+                            return notice.department === session.user.department;
+                        }
+                        return true;
+                    });
                 }
                 setDetails(sortedData);
             })
@@ -275,29 +314,23 @@ const DataDisplay = ({ data }) => {
         } else if (filterQuery) {
             let filteredData = [...initialData];
             
-            if (session?.user?.role === 'ACADEMIC_ADMIN') {
-                filteredData = filteredData.filter(notice => notice.notice_type === 'academics');
-            } else if (session?.user?.role === 'DEPT_ADMIN') {
-                filteredData = filteredData.filter(notice => 
-                    notice.notice_type === 'department' && 
-                    notice.department === session.user.department
-                );
-            } else if (session?.user?.role === 'TENDER_NOTICE_ADMIN') {
-                filteredData = filteredData.filter(notice => notice.notice_type === 'tender');
-            } else if (session?.user?.role === 'EXAM_ADMIN') {
-                filteredData = filteredData.filter(notice => notice.notice_type === 'exam');
-            } else if (session?.user?.specialPermissions?.length > 0) {
-                filteredData = filteredData.filter(notice => 
-                    session.user.specialPermissions.includes(notice.notice_type?.toLowerCase())
-                );
-            } else if (filterQuery.notice_type && filterQuery.notice_type !== 'all') {
+            if (session?.user?.role !== 'SUPER_ADMIN' && allowedNoticeTypes.length > 0) {
+                filteredData = filteredData.filter(notice => {
+                    const nType = notice.notice_type?.toLowerCase();
+                    if (!allowedNoticeTypes.includes(nType)) return false;
+                    if (nType === 'department' && session?.user?.role === 'DEPT_ADMIN') {
+                        return notice.department === session.user.department;
+                    }
+                    return true;
+                });
+            }
+
+            if (filterQuery.notice_type && filterQuery.notice_type !== 'all') {
                 filteredData = filteredData.filter(notice => notice.notice_type === filterQuery.notice_type);
             }
             if (filterQuery?.notice_sub_type) {
                 filteredData = filteredData.filter(notice => notice.notice_sub_type === filterQuery.notice_sub_type);
             }
-       
-            
             if (filterQuery.department && filterQuery.department !== 'all') {
                 filteredData = filteredData.filter(notice => notice.department === filterQuery.department);
             }
@@ -309,21 +342,35 @@ const DataDisplay = ({ data }) => {
             const sortedFilterData = filteredData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
             setDetails(sortedFilterData);
         }
-    }, [page, rowsPerPage, filterQuery, initialData, session]);
+    }, [page, rowsPerPage, filterQuery, initialData, session, allowedNoticeTypes]);
 
     const getHeadingTitle = () => {
-        if (session?.user?.role === 'ACADEMIC_ADMIN') return 'Academic Notices';
-        if (session?.user?.role === 'DEPT_ADMIN') return `${session.user.department} Notices`;
-        if (session?.user?.role === 'TENDER_NOTICE_ADMIN') return 'Tender Notices';
-        if (session?.user?.role === 'EXAM_ADMIN') return 'Exam Notices';
-        if (session?.user?.specialPermissions?.length > 0) {
-            const hasAdm = session.user.specialPermissions.includes('admissions');
-            const hasJob = session.user.specialPermissions.includes('job');
-            if (hasAdm && hasJob) return 'Admissions & Recruitment Notices';
-            if (hasAdm) return 'Admissions Notices';
-            if (hasJob) return 'Recruitment (Job) Notices';
+        if (session?.user?.role === 'SUPER_ADMIN') return 'Recent Notices';
+        
+        if (allowedNoticeTypes.length === 1) {
+            const t = allowedNoticeTypes[0];
+            if (t === 'academics') return 'Academic Notices';
+            if (t === 'department') return `${session?.user?.department || 'Department'} Notices`;
+            if (t === 'tender') return 'Tender Notices';
+            if (t === 'exam') return 'Exam Notices';
+            if (t === 'admissions') return 'Admissions Notices';
+            if (t === 'job') return 'Recruitment (Job) Notices';
+            return `${t.charAt(0).toUpperCase() + t.slice(1)} Notices`;
         }
-        return 'Recent Notices';
+
+        if (session?.user?.role === 'ACADEMIC_ADMIN') {
+            const special = session?.user?.specialPermissions || [];
+            if (special.length > 0) return 'Academic, Department & Delegated Notices';
+            return 'Academic & Department Notices';
+        }
+
+        if (session?.user?.role === 'DEPT_ADMIN') {
+            const special = session?.user?.specialPermissions || [];
+            if (special.length > 0) return `${session.user.department} & Delegated Notices`;
+            return `${session.user.department} Notices`;
+        }
+
+        return 'Authorized Notices';
     };
 
     return (
@@ -334,16 +381,16 @@ const DataDisplay = ({ data }) => {
                 </Typography>
                 
                 <Box>
-                <Button
-                    variant="contained"
+                    <Button
+                        variant="contained"
                         onClick={() => setAddModal(true)}
                         sx={{ mr: 2 }}
                         style={{ backgroundColor: '#830001', color: 'white' }}
-                >
-                    Add New Notice
-                </Button>
-                    {session?.user?.role !== 'ACADEMIC_ADMIN' && session?.user?.role !== 'DEPT_ADMIN' && session?.user?.role !== 'TENDER_NOTICE_ADMIN' && session?.user?.role !== 'EXAM_ADMIN' && !session?.user?.specialPermissions?.length && (
-                <Filter type="notice" setEntries={setFilterQuery} style={{ color: '#830001' }}/>
+                    >
+                        Add New Notice
+                    </Button>
+                    {(session?.user?.role === 'SUPER_ADMIN' || allowedNoticeTypes.length > 1) && (
+                        <Filter type="notice" setEntries={setFilterQuery} style={{ color: '#830001' }}/>
                     )}
                 </Box>
             </Box>
@@ -379,19 +426,19 @@ const DataDisplay = ({ data }) => {
             </TableContainer>
 
             <Box mt={3}>
-                    <TablePagination
+                <TablePagination
                     component="div"
                     count={-1}
                     page={page}
                     onPageChange={(e, newPage) => setPage(newPage)}
-                        rowsPerPage={rowsPerPage}
+                    rowsPerPage={rowsPerPage}
                     onRowsPerPageChange={(e) => {
                         setRowsPerPage(parseInt(e.target.value, 10));
                         setPage(0);
                     }}
                     rowsPerPageOptions={[15, 25, 50, 100]}
-                        ActionsComponent={TablePaginationActions}
-                    />
+                    ActionsComponent={TablePaginationActions}
+                />
             </Box>
 
             <AddForm 
@@ -402,4 +449,4 @@ const DataDisplay = ({ data }) => {
     )
 }
 
-export default DataDisplay
+export default DataDisplay;

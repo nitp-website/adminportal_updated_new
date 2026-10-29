@@ -116,8 +116,6 @@ export async function GET(request) {
       totalPages: Math.ceil(total / limit),
       data: notices
     });
-
-    return NextResponse.json(notices);
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
@@ -125,7 +123,6 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    
   try {
     const body = await request.json();
     let {
@@ -150,59 +147,69 @@ export async function POST(request) {
 
     let results;
 
-    // For ACADEMIC_ADMIN, always filter for academic notices
-    if (notice_type === "academics") {
+    // 1. Multiple notice types specified (e.g. user has combined role + special permissions)
+    if (notice_types && Array.isArray(notice_types) && notice_types.length > 0) {
       const limit = Math.max(1, Math.min(100, to - from));
       const offset = Math.max(0, from);
-      console.log("DEBUG: Academic pagination params:", { offset, limit });
+      const cleanTypes = notice_types.map((t) => String(t).trim().toLowerCase());
+      const hasDept = cleanTypes.includes("department");
+      const nonDeptTypes = cleanTypes.filter((t) => t !== "department");
 
-      results = await query(
-        `SELECT * FROM notices 
-         WHERE notice_type = ?
-         ORDER BY openDate DESC 
-         LIMIT ${limit} OFFSET ${offset}`,
-        ["academics"],
-      );
+      let sql = "";
+      let params = [];
+
+      if (hasDept && department) {
+        if (nonDeptTypes.length > 0) {
+          const placeholders = nonDeptTypes.map(() => "?").join(",");
+          sql = `SELECT * FROM notices 
+                 WHERE (LOWER(notice_type) IN (${placeholders}) OR (LOWER(notice_type) = 'department' AND department = ?))
+                 ORDER BY openDate DESC 
+                 LIMIT ${limit} OFFSET ${offset}`;
+          params = [...nonDeptTypes, department];
+        } else {
+          sql = `SELECT * FROM notices 
+                 WHERE LOWER(notice_type) = 'department' AND department = ?
+                 ORDER BY openDate DESC 
+                 LIMIT ${limit} OFFSET ${offset}`;
+          params = [department];
+        }
+      } else {
+        const placeholders = cleanTypes.map(() => "?").join(",");
+        sql = `SELECT * FROM notices 
+               WHERE LOWER(notice_type) IN (${placeholders})
+               ORDER BY openDate DESC 
+               LIMIT ${limit} OFFSET ${offset}`;
+        params = cleanTypes;
+      }
+
+      results = await query(sql, params);
     }
-    // For DEPT_ADMIN, filter for department notices of their department
+    // 2. Single department notice with department filter (DEPT_ADMIN)
     else if (notice_type === "department" && department) {
       const limit = Math.max(1, Math.min(100, to - from));
       const offset = Math.max(0, from);
-      console.log("DEBUG: Department pagination params:", {
-        offset,
-        limit,
-        department,
-      });
-
       results = await query(
         `SELECT * FROM notices 
-         WHERE notice_type = ? AND department = ?
+         WHERE LOWER(notice_type) = 'department' AND department = ?
          ORDER BY openDate DESC 
          LIMIT ${limit} OFFSET ${offset}`,
-        ["department", department],
+        [department],
       );
-    } else if (notice_types && Array.isArray(notice_types) && notice_types.length > 0) {
-      const limit = Math.max(1, Math.min(100, to - from));
-      const offset = Math.max(0, from);
-      const placeholders = notice_types.map(() => '?').join(',');
-      results = await query(
-        `SELECT * FROM notices 
-         WHERE notice_type IN (${placeholders})
-         ORDER BY openDate DESC 
-         LIMIT ${limit} OFFSET ${offset}`,
-        notice_types,
-      );
-    } else if (notice_type && notice_type !== "general" && notice_type !== "all") {
+    }
+    // 3. Single notice type filter (academics, tender, exam, admissions, job, etc.)
+    else if (notice_type && notice_type !== "general" && notice_type !== "all") {
       const limit = Math.max(1, Math.min(100, to - from));
       const offset = Math.max(0, from);
       results = await query(
         `SELECT * FROM notices 
-         WHERE notice_type = ?
+         WHERE LOWER(notice_type) = ?
          ORDER BY openDate DESC 
          LIMIT ${limit} OFFSET ${offset}`,
-        [notice_type],
+        [String(notice_type).trim().toLowerCase()],
       );
-    } else {
+    }
+    // 4. Default / Search / Range queries
+    else {
       switch (type) {
         case "range":
           const rangeLimit = Math.max(1, Math.min(100, to - from));
@@ -219,13 +226,13 @@ export async function POST(request) {
           } else if (notice_type !== "department") {
             results = await query(
               `SELECT * FROM notices 
-               WHERE notice_type = ? 
+               WHERE LOWER(notice_type) = ? 
                AND closeDate <= ? 
                AND openDate >= ? 
                AND title LIKE ? 
                ORDER BY openDate DESC 
                LIMIT ${rangeLimit} OFFSET ${rangeOffset}`,
-              [notice_type, end_date, start_date, `%${keyword}%`],
+              [notice_type.toLowerCase(), end_date, start_date, `%${keyword}%`],
             );
           } else {
             results = await query(
@@ -242,16 +249,9 @@ export async function POST(request) {
           break;
 
         case "between":
-          const limit = Math.max(1, Math.min(100, to - from)); // Ensure limit is between 1 and 100
-          const offset = Math.max(0, from); // Ensure offset is non-negative
-          console.log("DEBUG: Pagination params:", {
-            offset,
-            limit,
-            originalFrom: from,
-            originalTo: to,
-          });
+          const limit = Math.max(1, Math.min(100, to - from));
+          const offset = Math.max(0, from);
 
-          // Try without prepared statements for LIMIT clause
           results = await query(
             `SELECT * FROM notices 
              ORDER BY openDate DESC 

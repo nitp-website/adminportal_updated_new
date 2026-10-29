@@ -31,14 +31,21 @@ export async function POST(request) {
       console.log('Notice department:', params.data.department)
       console.log('Notice type:', params.data.notice_type)
       
-      const userSpecialPerms = session.user.specialPermissions || await getFacultySpecialPermissions(session.user.email);
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const targetType = params.data.notice_type?.toLowerCase();
+
       const canCreateNotice = 
         session.user.role === 'SUPER_ADMIN' ||
-        (session.user.role === 'DEPT_ADMIN' && params.data.department === session.user.department) ||
-        session.user.role === 'ACADEMIC_ADMIN' ||
-        (session.user.role === 'TENDER_NOTICE_ADMIN' && params.data.notice_type === 'tender') ||
-        (session.user.role === 'EXAM_ADMIN' && params.data.notice_type === 'exam') ||
-        (Array.isArray(userSpecialPerms) && userSpecialPerms.includes(params.data.notice_type?.toLowerCase()))
+        (session.user.role === 'DEPT_ADMIN' && targetType === 'department' && params.data.department === session.user.department) ||
+        (session.user.role === 'ACADEMIC_ADMIN' && (targetType === 'academics' || targetType === 'department')) ||
+        (session.user.role === 'TENDER_NOTICE_ADMIN' && targetType === 'tender') ||
+        (session.user.role === 'EXAM_ADMIN' && targetType === 'exam') ||
+        userSpecialPerms.includes(targetType);
       
       console.log('Can create notice:', canCreateNotice)
       

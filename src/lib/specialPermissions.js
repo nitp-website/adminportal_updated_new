@@ -1,9 +1,5 @@
 import { query } from '@/lib/db';
-
-export const PERMISSION_CONFIG = [
-  { key: 'admissions', label: 'Admissions Notices', color: '#1976d2' },
-  { key: 'job', label: 'Recruitment (Job) Notices', color: '#2e7d32' },
-];
+export { PERMISSION_CONFIG } from './specialPermissionsConfig';
 
 /**
  * Retrieves the list of all faculty special permissions from the database.

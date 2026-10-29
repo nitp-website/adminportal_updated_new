@@ -127,6 +127,59 @@ export const EditForm = ({ data, handleClose, modal }) => {
         fetchFileManagementData();
     }, []);
 
+    // Calculate all authorized notice types for current user
+    const allowedNoticeTypes = useMemo(() => {
+        if (!session?.user) return [];
+        if (session.user.role === 'SUPER_ADMIN') {
+            return [
+                { key: 'general', label: 'General' },
+                { key: 'department', label: 'Department' },
+                { key: 'tender', label: 'Tender' },
+                ...Array.from(administrationList).map(([key, value]) => ({ key, label: value }))
+            ];
+        }
+
+        const baseKeys = [];
+        if (session.user.role === 'ACADEMIC_ADMIN') {
+            baseKeys.push('academics', 'department');
+        } else if (session.user.role === 'DEPT_ADMIN') {
+            baseKeys.push('department');
+        } else if (session.user.role === 'TENDER_NOTICE_ADMIN') {
+            baseKeys.push('tender');
+        } else if (session.user.role === 'EXAM_ADMIN') {
+            baseKeys.push('exam');
+        }
+
+        const special = (session.user.specialPermissions || []).map((p) => String(p).toLowerCase());
+        const combinedKeys = Array.from(new Set([...baseKeys, ...special]));
+
+        // Always make sure the current notice's type is present in options
+        if (data?.notice_type && !combinedKeys.includes(data.notice_type.toLowerCase())) {
+            combinedKeys.push(data.notice_type.toLowerCase());
+        }
+
+        const labelMap = {
+            general: 'General',
+            department: 'Department',
+            tender: 'Tender',
+            exam: 'Examination Section',
+            academics: 'Academics',
+            admissions: 'Admissions',
+            job: 'JOB / Recruitment',
+            academicintranet: 'Intranet - Academic and Exam Notice',
+            genralintranet: 'Intranet - General Notice',
+            bogminutes: 'BOG/FC/BWC Minutes',
+            senateminutes: 'Senate Minutes',
+            annualreport: 'Annual Reports',
+            newcampus: 'New Campus'
+        };
+
+        return combinedKeys.map((key) => ({
+            key,
+            label: labelMap[key] || administrationList.get(key) || (key.charAt(0).toUpperCase() + key.slice(1))
+        }));
+    }, [session, data?.notice_type]);
+
     // If selected notice type or predefined data has sub types, this returns the subtypes or null/undefined (Array or undefined).
     const currentNoticeSubTypes = useMemo(() => {
         if (!content.type) return undefined;
@@ -158,9 +211,16 @@ export const EditForm = ({ data, handleClose, modal }) => {
     const handleChange = (e) => {
         const { name, type, value, checked } = e.target;
         const fieldValue = type === 'checkbox' ? (checked ? 1 : 0) : value;
-        // If user selects a new notice type, reset sub_type
+        // If user selects a new notice type, reset sub_type and adjust department
         if (name === "type") {
-            setContent((prev) => ({ ...prev, [name]: fieldValue, notice_sub_type: '' }));
+            const isDeptType = fieldValue === 'department';
+            setContent((prev) => ({
+                ...prev,
+                [name]: fieldValue,
+                notice_sub_type: '',
+                department: isDeptType ? (prev.department || session?.user?.department || '') : null,
+                isDept: isDeptType ? 1 : 0,
+            }));
         } else {
             setContent((prev) => ({ ...prev, [name]: fieldValue }));
         }
@@ -425,42 +485,14 @@ export const EditForm = ({ data, handleClose, modal }) => {
                                         value={content.type}
                                         onChange={handleChange}
                                         label="Notice Type"
-                                        disabled={
-                                            session?.user?.role === 'DEPT_ADMIN' ||
-                                            session?.user?.role === 'ACADEMIC_ADMIN' ||
-                                            session?.user?.role === 'TENDER_NOTICE_ADMIN' ||
-                                            session?.user?.role === 'EXAM_ADMIN' ||
-                                            (session?.user?.specialPermissions?.length === 1)
-                                        }
+                                        disabled={session?.user?.role !== 'SUPER_ADMIN' && allowedNoticeTypes.length <= 1}
                                         required
                                     >
-                                        {session?.user?.role === 'DEPT_ADMIN' ? (
-                                            <MenuItem value="department">Department</MenuItem>
-                                        ) : session?.user?.role === 'ACADEMIC_ADMIN' ? (
-                                            <MenuItem value="academics">Academics</MenuItem>
-                                        ) : session?.user?.role === 'TENDER_NOTICE_ADMIN' ? (
-                                            <MenuItem value="tender">Tender</MenuItem>
-                                        ) : session?.user?.role === 'EXAM_ADMIN' ? (
-                                            <MenuItem value="exam">Examination Section</MenuItem>
-                                        ) : session?.user?.specialPermissions?.length > 0 ? (
-                                            [
-                                                session.user.specialPermissions.includes('admissions') && (
-                                                    <MenuItem value="admissions" key="admissions">Admissions</MenuItem>
-                                                ),
-                                                session.user.specialPermissions.includes('job') && (
-                                                    <MenuItem value="job" key="job">JOB / Recruitment</MenuItem>
-                                                )
-                                            ].filter(Boolean)
-                                        ) : [
-                                            <MenuItem value="general" key="general">General</MenuItem>,
-                                            <MenuItem value="department" key="department">Department</MenuItem>,
-                                            ...Array.from(administrationList).map(
-                                                ([key, value]) => (
-                                                    <MenuItem key={key} value={key}>
-                                                        {value}
-                                                    </MenuItem>
-                                            ))
-                                        ]}
+                                        {allowedNoticeTypes.map((opt) => (
+                                            <MenuItem key={opt.key} value={opt.key}>
+                                                {opt.label}
+                                            </MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                             </Grid>

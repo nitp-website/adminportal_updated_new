@@ -47,16 +47,23 @@ export async function POST(request) {
       console.log('User email:', session.user.email)
       console.log('Notice email:', noticeData.email)
 
-      const userSpecialPerms = session.user.specialPermissions || await getFacultySpecialPermissions(session.user.email);
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const nType = noticeData.notice_type?.toLowerCase();
+
       const canDeleteNotice = 
         session.user.role === 'SUPER_ADMIN' ||
-        (session.user.role === 'ACADEMIC_ADMIN' && noticeData.notice_type === 'academics') ||
+        (session.user.role === 'ACADEMIC_ADMIN' && (nType === 'academics' || nType === 'department')) ||
         (session.user.role === 'DEPT_ADMIN' && 
-         noticeData.notice_type === 'department' && 
+         nType === 'department' && 
          noticeData.department === session.user.department) ||
-        (session.user.role === 'TENDER_NOTICE_ADMIN' && noticeData.notice_type === 'tender') ||
-        (session.user.role === 'EXAM_ADMIN' && noticeData.notice_type === 'exam') ||
-        (Array.isArray(userSpecialPerms) && userSpecialPerms.includes(noticeData.notice_type?.toLowerCase()))
+        (session.user.role === 'TENDER_NOTICE_ADMIN' && nType === 'tender') ||
+        (session.user.role === 'EXAM_ADMIN' && nType === 'exam') ||
+        userSpecialPerms.includes(nType);
       
       console.log('Can delete notice:', canDeleteNotice)
       

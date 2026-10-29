@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { depList } from '@/lib/const'
 
+const PUB_TYPES = new Set(['conference', 'journal', 'book_chapter', 'textbook'])
+
 // Parses "2026-2025", "2025", or "2025-2026" into { from, to } (from <= to).
 // Returns null if not provided / unparsable.
 function parseYearRange(raw) {
@@ -19,12 +21,38 @@ function parseYearRange(raw) {
   return { from, to }
 }
 
+// Splits a search string into up to 5 terms and escapes LIKE wildcards.
+// "john  smith" -> ['john', 'smith']; each term must match at least one column.
+function parseSearchTerms(raw) {
+  if (!raw) return []
+  return raw
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((t) => t.replace(/[\\%_]/g, '\\$&'))
+}
+
 // Builds the JOIN + WHERE + params for a single source table.
 // yearExpr must be a SQL expression that evaluates to a normalized integer year.
-function buildClause(emailCol, yearExpr, dept, yearFilter) {
+//
+// opts:
+//   dept        - department name (or null)
+//   yearFilter  - { from, to } (or null)
+//   searchCols  - columns to search in for this table
+//   terms       - parsed search terms (all must match, each against any column)
+//   extra       - [{ col, value, like }] additional filters (e.g. indexing)
+//   exclude     - true => this table contributes no rows (publication type filter etc.)
+function buildClause(emailCol, yearExpr, opts = {}) {
+  const { dept, yearFilter, searchCols = [], terms = [], extra = [], exclude = false } = opts
+
   const conditions = []
   const params = []
   let join = ''
+
+  if (exclude) {
+    conditions.push('1 = 0')
+  }
 
   if (dept) {
     join = `JOIN user u ON u.email = ${emailCol}`
@@ -35,6 +63,24 @@ function buildClause(emailCol, yearExpr, dept, yearFilter) {
   if (yearFilter) {
     conditions.push(`${yearExpr} BETWEEN ? AND ?`)
     params.push(yearFilter.from, yearFilter.to)
+  }
+
+  if (terms.length && searchCols.length) {
+    for (const term of terms) {
+      conditions.push('(' + searchCols.map((c) => `${c} LIKE ?`).join(' OR ') + ')')
+      searchCols.forEach(() => params.push(`%${term}%`))
+    }
+  }
+
+  for (const f of extra) {
+    if (!f.value) continue
+    if (f.like) {
+      conditions.push(`${f.col} LIKE ?`)
+      params.push(`%${String(f.value).replace(/[\\%_]/g, '\\$&')}%`)
+    } else {
+      conditions.push(`${f.col} = ?`)
+      params.push(f.value)
+    }
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -83,6 +129,22 @@ export async function GET(request) {
     const offset = (page - 1) * limit
     const yearFilter = parseYearRange(searchParams.get('year'))
 
+    // ---- New server-side filters -------------------------------------------
+    const searchRaw = (searchParams.get('search') || '').trim().slice(0, 200)
+    const terms = parseSearchTerms(searchRaw)
+
+    const pubTypeRaw = searchParams.get('pubType')
+    const pubType = pubTypeRaw && pubTypeRaw !== 'all' ? pubTypeRaw : null
+    if (pubType && !PUB_TYPES.has(pubType)) {
+      return NextResponse.json({ message: 'Invalid pubType parameter' }, { status: 400 })
+    }
+
+    const indexingRaw = searchParams.get('indexing')
+    const indexing = indexingRaw && indexingRaw !== 'all' ? indexingRaw.trim() : null
+
+    const hasFilters = Boolean(terms.length || pubType || indexing)
+    // ------------------------------------------------------------------------
+
     // Normalized year expressions per table (all cast to integer year)
     const YEAR_EXPR = {
       conference: 'CAST(cp.conference_year AS UNSIGNED)',
@@ -91,11 +153,58 @@ export async function GET(request) {
       textbook: 'CAST(t.year AS UNSIGNED)',
     }
 
-    const buildUnionQuery = (dept) => {
-      const conf = buildClause('cp.email', YEAR_EXPR.conference, dept, yearFilter)
-      const jour = buildClause('jp.email', YEAR_EXPR.journal, dept, yearFilter)
-      const chap = buildClause('bc.email', YEAR_EXPR.book_chapter, dept, yearFilter)
-      const text = buildClause('t.email', YEAR_EXPR.textbook, dept, yearFilter)
+    // Columns searched in each table
+    const SEARCH_COLS = {
+      conference: ['cp.title', 'cp.authors', 'cp.conference_name', 'cp.doi'],
+      journal: ['jp.title', 'jp.authors', 'jp.journal_name', 'jp.doi_url'],
+      book_chapter: ['bc.chapter_title', 'bc.authors', 'bc.book_title', 'bc.publisher'],
+      textbook: ['t.title', 't.authors', 't.publisher'],
+    }
+
+    // Builds the 4 publication clauses.
+    // applyFilters = false -> only dept + year (used for the stat cards)
+    // applyFilters = true  -> dept + year + search + pubType + indexing
+    const getPubClauses = (applyFilters) => {
+      const base = { dept, yearFilter }
+
+      const excluded = (t, hasIndexingCol) =>
+        applyFilters && Boolean((pubType && pubType !== t) || (indexing && !hasIndexingCol))
+
+      const searchTerms = applyFilters ? terms : []
+      const indexingExtra = applyFilters && indexing ? [{ col: '', value: indexing, like: true }] : []
+
+      return {
+        conf: buildClause('cp.email', YEAR_EXPR.conference, {
+          ...base,
+          searchCols: SEARCH_COLS.conference,
+          terms: searchTerms,
+          extra: indexingExtra.map((e) => ({ ...e, col: 'cp.indexing' })),
+          exclude: excluded('conference', true),
+        }),
+        jour: buildClause('jp.email', YEAR_EXPR.journal, {
+          ...base,
+          searchCols: SEARCH_COLS.journal,
+          terms: searchTerms,
+          extra: indexingExtra.map((e) => ({ ...e, col: 'jp.indexing' })),
+          exclude: excluded('journal', true),
+        }),
+        chap: buildClause('bc.email', YEAR_EXPR.book_chapter, {
+          ...base,
+          searchCols: SEARCH_COLS.book_chapter,
+          terms: searchTerms,
+          exclude: excluded('book_chapter', false),
+        }),
+        text: buildClause('t.email', YEAR_EXPR.textbook, {
+          ...base,
+          searchCols: SEARCH_COLS.textbook,
+          terms: searchTerms,
+          exclude: excluded('textbook', false),
+        }),
+      }
+    }
+
+    const buildUnionQuery = () => {
+      const { conf, jour, chap, text } = getPubClauses(true)
 
       const params = [...conf.params, ...jour.params, ...chap.params, ...text.params]
 
@@ -268,20 +377,33 @@ export async function GET(request) {
         ${text.where}
 
       ) AS combined
-      ORDER BY sort_year DESC
+      ORDER BY sort_year DESC, id DESC
       LIMIT ${limit} OFFSET ${offset}
     `
 
       return { sql, params }
     }
 
-    const buildCountQuery = (dept) => {
-      const conf = buildClause('cp.email', YEAR_EXPR.conference, dept, yearFilter)
-      const jour = buildClause('jp.email', YEAR_EXPR.journal, dept, yearFilter)
-      const chap = buildClause('bc.email', YEAR_EXPR.book_chapter, dept, yearFilter)
-      const text = buildClause('t.email', YEAR_EXPR.textbook, dept, yearFilter)
+    // Publication-only counts (used for the filtered total / pagination)
+    const buildPubCountQuery = (applyFilters) => {
+      const { conf, jour, chap, text } = getPubClauses(applyFilters)
+      const params = [...conf.params, ...jour.params, ...chap.params, ...text.params]
+
+      const sql = `
+        SELECT
+          (SELECT COUNT(*) FROM conference_papers cp ${conf.join} ${conf.where}) AS conference_papers,
+          (SELECT COUNT(*) FROM journal_papers jp ${jour.join} ${jour.where}) AS journal_papers,
+          (SELECT COUNT(*) FROM book_chapters bc ${chap.join} ${chap.where}) AS book_chapters,
+          (SELECT COUNT(*) FROM textbooks t ${text.join} ${text.where}) AS textbooks
+      `
+      return { sql, params }
+    }
+
+    // Stat cards: publications + projects, filtered by dept + year only
+    const buildStatsQuery = () => {
+      const { conf, jour, chap, text } = getPubClauses(false)
       const sp = buildProjectCountClause('sponsored_projects_collaborater', 'sponsored_project_id', 'sp', dept, yearFilter)
-      const cp = buildProjectCountClause('consultancy_projects_collaborater', 'consultancy_projects_id', 'cp', dept, yearFilter)
+      const cons = buildProjectCountClause('consultancy_projects_collaborater', 'consultancy_projects_id', 'cp', dept, yearFilter)
 
       const params = [
         ...conf.params,
@@ -289,7 +411,7 @@ export async function GET(request) {
         ...chap.params,
         ...text.params,
         ...sp.params,
-        ...cp.params,
+        ...cons.params,
       ]
 
       const sql = `
@@ -299,31 +421,21 @@ export async function GET(request) {
           (SELECT COUNT(*) FROM book_chapters bc ${chap.join} ${chap.where}) AS book_chapters,
           (SELECT COUNT(*) FROM textbooks t ${text.join} ${text.where}) AS textbooks,
           (SELECT COUNT(DISTINCT sp.id) FROM sponsored_projects sp ${sp.join} ${sp.where}) AS sponsored_projects,
-          (SELECT COUNT(DISTINCT cp.id) FROM consultancy_projects cp ${cp.join} ${cp.where}) AS consultancy_projects
+          (SELECT COUNT(DISTINCT cp.id) FROM consultancy_projects cp ${cons.join} ${cons.where}) AS consultancy_projects
       `
       return { sql, params }
     }
 
+    // ---- Stats (unfiltered by search/pubType/indexing) ---------------------
     let countRes = []
     try {
-      const { sql: countSql, params: countParams } = buildCountQuery(dept)
-      countRes = await query(countSql, countParams)
+      const { sql: statsSql, params: statsParams } = buildStatsQuery()
+      countRes = await query(statsSql, statsParams)
     } catch (countErr) {
       console.error('Stats count query error, using fallback:', countErr)
       try {
-        const conf = buildClause('cp.email', YEAR_EXPR.conference, dept, yearFilter)
-        const jour = buildClause('jp.email', YEAR_EXPR.journal, dept, yearFilter)
-        const chap = buildClause('bc.email', YEAR_EXPR.book_chapter, dept, yearFilter)
-        const text = buildClause('t.email', YEAR_EXPR.textbook, dept, yearFilter)
-        const pubParams = [...conf.params, ...jour.params, ...chap.params, ...text.params]
-        const fallbackSql = `
-          SELECT
-            (SELECT COUNT(*) FROM conference_papers cp ${conf.join} ${conf.where}) AS conference_papers,
-            (SELECT COUNT(*) FROM journal_papers jp ${jour.join} ${jour.where}) AS journal_papers,
-            (SELECT COUNT(*) FROM book_chapters bc ${chap.join} ${chap.where}) AS book_chapters,
-            (SELECT COUNT(*) FROM textbooks t ${text.join} ${text.where}) AS textbooks
-        `
-        countRes = await query(fallbackSql, pubParams)
+        const { sql: fallbackSql, params: fallbackParams } = buildPubCountQuery(false)
+        countRes = await query(fallbackSql, fallbackParams)
       } catch (e2) {
         console.error('Fallback count error:', e2)
       }
@@ -338,7 +450,7 @@ export async function GET(request) {
 
     const booksCount = bookChapterCount + textbookCount
     const projectsCount = sponsoredCount + consultancyCount
-    const total = conferenceCount + journalCount + bookChapterCount + textbookCount
+    const statsTotal = conferenceCount + journalCount + bookChapterCount + textbookCount
 
     const stats = {
       journals: journalCount,
@@ -349,10 +461,23 @@ export async function GET(request) {
       textbooks: textbookCount,
       sponsored_projects: sponsoredCount,
       consultancy_projects: consultancyCount,
-      total: total,
+      total: statsTotal,
     }
 
-    const { sql, params } = buildUnionQuery(dept)
+    // ---- Total used for pagination (respects search/pubType/indexing) ------
+    let total = statsTotal
+    if (hasFilters) {
+      const { sql: fSql, params: fParams } = buildPubCountQuery(true)
+      const fRes = await query(fSql, fParams)
+      total =
+        Number(fRes[0]?.conference_papers || 0) +
+        Number(fRes[0]?.journal_papers || 0) +
+        Number(fRes[0]?.book_chapters || 0) +
+        Number(fRes[0]?.textbooks || 0)
+    }
+
+    // ---- Page data ----------------------------------------------------------
+    const { sql, params } = buildUnionQuery()
     const results = await query(sql, params)
     results.forEach((r) => delete r.sort_year)
 

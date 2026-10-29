@@ -159,16 +159,27 @@ export async function PUT(request) {
 
 
 
-      const userSpecialPerms = session.user.specialPermissions || await getFacultySpecialPermissions(session.user.email);
-      const canUpdateNotice = 
-        session.user.role === 'SUPER_ADMIN' ||
-        (session.user.role === 'ACADEMIC_ADMIN' && noticeData.notice_type === 'academics') ||
-        (session.user.role === 'DEPT_ADMIN' && 
-         noticeData.notice_type === 'department' && 
-         noticeData.department === session.user.department) ||
-        (session.user.role === 'TENDER_NOTICE_ADMIN' && noticeData.notice_type === 'tender') ||
-        (session.user.role === 'EXAM_ADMIN' && noticeData.notice_type === 'exam' && (!params.data.notice_type || params.data.notice_type === 'exam')) ||
-        (Array.isArray(userSpecialPerms) && userSpecialPerms.includes(noticeData.notice_type?.toLowerCase()))
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const currentType = noticeData.notice_type?.toLowerCase();
+      const targetType = (params.data.notice_type || noticeData.notice_type)?.toLowerCase();
+
+      const isAuthorizedForType = (typeToCheck, deptToCheck) => {
+        if (session.user.role === 'SUPER_ADMIN') return true;
+        if (session.user.role === 'ACADEMIC_ADMIN' && (typeToCheck === 'academics' || typeToCheck === 'department')) return true;
+        if (session.user.role === 'DEPT_ADMIN' && typeToCheck === 'department' && deptToCheck === session.user.department) return true;
+        if (session.user.role === 'TENDER_NOTICE_ADMIN' && typeToCheck === 'tender') return true;
+        if (session.user.role === 'EXAM_ADMIN' && typeToCheck === 'exam') return true;
+        if (userSpecialPerms.includes(typeToCheck)) return true;
+        return false;
+      };
+
+      const canUpdateNotice = isAuthorizedForType(currentType, noticeData.department) &&
+                              isAuthorizedForType(targetType, params.data.department || noticeData.department);
       
       console.log('Can update notice:', canUpdateNotice)
       

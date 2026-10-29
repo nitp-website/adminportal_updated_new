@@ -2,17 +2,21 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { depList } from '@/lib/const'
 
-// Parses "2020-2021" into a July 1 2020 – June 30 2021 date range, matching
+// Parses "2024-2025" into a July 1 2024 – June 30 2025 date range, matching
 // the frontend's getAcademicYear() logic (month >= 7 belongs to the year
 // that starts that July).
+// Also accepts multi-year ranges like "2023-2026" (July 1 2023 – June 30 2026)
+// and reversed input like "2025-2024".
 function parseAcademicYearRange(raw) {
   if (!raw) return null
-  const match = raw.match(/^(\d{4})-(\d{4})$/)
+  const match = raw.trim().match(/^(\d{4})\s*-\s*(\d{4})$/)
   if (!match) return null
 
-  const startYear = parseInt(match[1], 10)
-  const endYear = parseInt(match[2], 10)
-  if (endYear !== startYear + 1) return null
+  const a = parseInt(match[1], 10)
+  const b = parseInt(match[2], 10)
+  const startYear = Math.min(a, b)
+  const endYear = Math.max(a, b)
+  if (startYear === endYear) return null
 
   return {
     from: `${startYear}-07-01`,
@@ -20,9 +24,38 @@ function parseAcademicYearRange(raw) {
   }
 }
 
+// Splits the search string into up to 5 terms and escapes LIKE wildcards.
+// Every term must match at least one column.
+function parseSearchTerms(raw) {
+  if (!raw) return []
+  return raw
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((t) => t.replace(/[\\%_]/g, '\\$&'))
+}
+
 // Builds WHERE conditions + params for one source table (sponsored_projects or
 // consultancy_projects), supporting email, department, academic year, status, and search.
-function buildProjectClause({ tableAlias, collabTable, collabIdCol, emailParam, dept, academicYearRange, status, search }) {
+//
+// Academic year filter:
+//   - hasEndDate = true  (sponsored): a project matches if its duration OVERLAPS the
+//     selected range, i.e. start_date <= range.to AND (end_date IS NULL OR end_date >= range.from).
+//     So searching 2024-2025 also returns a project that runs 2023-2027.
+//   - hasEndDate = false (consultancy): there is no end date, so it matches when
+//     start_date falls inside the range.
+function buildProjectClause({
+  tableAlias,
+  collabTable,
+  collabIdCol,
+  emailParam,
+  dept,
+  academicYearRange,
+  status,
+  terms,
+  hasEndDate,
+}) {
   const conditions = []
   const params = []
 
@@ -37,8 +70,13 @@ function buildProjectClause({ tableAlias, collabTable, collabIdCol, emailParam, 
   }
 
   if (academicYearRange) {
-    conditions.push(`${tableAlias}.start_date BETWEEN ? AND ?`)
-    params.push(academicYearRange.from, academicYearRange.to)
+    if (hasEndDate) {
+      conditions.push(`(${tableAlias}.start_date <= ? AND (${tableAlias}.end_date IS NULL OR ${tableAlias}.end_date >= ?))`)
+      params.push(academicYearRange.to, academicYearRange.from)
+    } else {
+      conditions.push(`${tableAlias}.start_date BETWEEN ? AND ?`)
+      params.push(academicYearRange.from, academicYearRange.to)
+    }
   }
 
   if (status) {
@@ -46,15 +84,16 @@ function buildProjectClause({ tableAlias, collabTable, collabIdCol, emailParam, 
     params.push(status)
   }
 
-  if (search) {
-    const term = `%${search}%`
+  for (const t of terms) {
+    const term = `%${t}%`
     conditions.push(`(
       ${tableAlias}.project_title LIKE ? OR
       ${tableAlias}.funding_agency LIKE ? OR
       ${tableAlias}.investigators LIKE ? OR
-      ${tableAlias}.email LIKE ?
+      ${tableAlias}.email LIKE ? OR
+      ${tableAlias}.email IN (SELECT email FROM user WHERE name LIKE ?)
     )`)
-    params.push(term, term, term, term)
+    params.push(term, term, term, term, term)
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -68,12 +107,13 @@ export async function GET(request) {
     const type = searchParams.get('type')
     const emailParam = searchParams.get('email')
     const page = Math.max(1, parseInt(searchParams.get('page')) || 1)
-    const limit = Math.min(50, parseInt(searchParams.get('limit')) || 20)
+    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit')) || 20))
     const offset = (page - 1) * limit
 
     const academicYearRange = parseAcademicYearRange(searchParams.get('academic_year'))
-    const status = searchParams.get('status') || null
-    const search = searchParams.get('search') || null
+    const statusRaw = searchParams.get('status')
+    const status = statusRaw && statusRaw !== 'all' ? statusRaw : null
+    const terms = parseSearchTerms((searchParams.get('search') || '').slice(0, 200))
 
     if (type === 'count') {
       const count = await query(`
@@ -102,7 +142,8 @@ export async function GET(request) {
       dept,
       academicYearRange,
       status,
-      search,
+      terms,
+      hasEndDate: true,
     })
 
     const cpClause = buildProjectClause({
@@ -113,7 +154,8 @@ export async function GET(request) {
       dept,
       academicYearRange,
       status,
-      search,
+      terms,
+      hasEndDate: false,
     })
 
     const countRes = await query(
@@ -162,7 +204,7 @@ export async function GET(request) {
         ${cpClause.where}
         GROUP BY cp.id
       ) AS combined
-      ORDER BY sort_date DESC
+      ORDER BY sort_date DESC, project_type ASC, id DESC
       LIMIT ${limit} OFFSET ${offset}`,
       [...spClause.params, ...cpClause.params]
     )

@@ -21,8 +21,6 @@ import {
   Chip,
   Alert,
   Checkbox,
-  FormControlLabel,
-  FormGroup,
   Tooltip,
   CircularProgress,
   InputAdornment,
@@ -34,21 +32,11 @@ import SearchIcon from "@mui/icons-material/Search";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import EmailIcon from "@mui/icons-material/Email";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import SelectAllIcon from "@mui/icons-material/SelectAll";
+import DeselectIcon from "@mui/icons-material/Deselect";
+import { PERMISSION_CONFIG } from "@/lib/specialPermissionsConfig";
 
-const AVAILABLE_PERMISSIONS = [
-  {
-    key: "admissions",
-    label: "Admissions Notices",
-    description: "Publish, edit, and delete admission notifications & announcements",
-    color: "#1976d2",
-  },
-  {
-    key: "job",
-    label: "Recruitment (Job) Notices",
-    description: "Publish, edit, and delete faculty/staff recruitment and vacancy notices",
-    color: "#2e7d32",
-  },
-];
+const AVAILABLE_PERMISSIONS = PERMISSION_CONFIG;
 
 export default function PermissionTab({ showSnackbar }) {
   const [permissionsList, setPermissionsList] = useState([]);
@@ -103,7 +91,7 @@ export default function PermissionTab({ showSnackbar }) {
       setEditingItem(null);
       setFormData({
         email: "",
-        permissions: ["admissions"], // default with 1 selected
+        permissions: ["admissions"], // default with admissions selected
       });
     }
     setDialogOpen(true);
@@ -123,6 +111,20 @@ export default function PermissionTab({ showSnackbar }) {
         : [...prev.permissions, permKey];
       return { ...prev, permissions: newPerms };
     });
+  };
+
+  const handleSelectAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: AVAILABLE_PERMISSIONS.map((p) => p.key),
+    }));
+  };
+
+  const handleClearAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: [],
+    }));
   };
 
   const handleSave = async (e) => {
@@ -215,7 +217,7 @@ export default function PermissionTab({ showSnackbar }) {
             Faculty Notice Access Delegations
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Delegate notice publishing rights (Admissions, Recruitment) to specific faculty members without altering their primary profile or role.
+            Delegate notice publishing, editing, and deletion rights for any notice section to specific users without altering their primary role.
           </Typography>
         </Box>
 
@@ -235,7 +237,7 @@ export default function PermissionTab({ showSnackbar }) {
       </Box>
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        <strong>How it works:</strong> Faculty members added here will immediately see the <strong>"Notice"</strong> link in their dashboard header, enabling them to post and manage only their authorized notice categories.
+        <strong>How it works:</strong> Users granted notice permissions will immediately see the <strong>&quot;Notice&quot;</strong> section in their navigation bar. They can view, create, edit, and delete notices across both their base role sections (e.g. Academic Admin, Dept Admin) and any granted special permissions simultaneously.
       </Alert>
 
       {/* Search Bar */}
@@ -268,10 +270,10 @@ export default function PermissionTab({ showSnackbar }) {
         <Table>
           <TableHead sx={{ backgroundColor: "#f8f9fa" }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600, color: "#333" }}>Faculty Email</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: "#333", width: "250px" }}>Faculty Email</TableCell>
               <TableCell sx={{ fontWeight: 600, color: "#333" }}>Assigned Permissions</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: "#333" }}>Status</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 600, color: "#333" }}>
+              <TableCell sx={{ fontWeight: 600, color: "#333", width: "120px" }}>Status</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600, color: "#333", width: "120px" }}>
                 Actions
               </TableCell>
             </TableRow>
@@ -313,7 +315,7 @@ export default function PermissionTab({ showSnackbar }) {
                   </TableCell>
 
                   <TableCell>
-                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    <Box sx={{ display: "flex", gap: 0.8, flexWrap: "wrap" }}>
                       {Array.isArray(item.permissions) &&
                         item.permissions.map((perm) => {
                           const config = AVAILABLE_PERMISSIONS.find((p) => p.key === perm);
@@ -373,7 +375,7 @@ export default function PermissionTab({ showSnackbar }) {
       </TableContainer>
 
       {/* Add / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <form onSubmit={handleSave}>
           <DialogTitle
             sx={{
@@ -390,12 +392,12 @@ export default function PermissionTab({ showSnackbar }) {
 
           <DialogContent sx={{ mt: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Specify the faculty member's institutional email and select which notice sections they can manage.
+              Specify the faculty/staff institutional email and select which notice sections they are authorized to manage.
             </Typography>
 
             <TextField
               fullWidth
-              label="Faculty Email Address"
+              label="User Email Address"
               placeholder="e.g. faculty.name@nitp.ac.in"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -409,11 +411,41 @@ export default function PermissionTab({ showSnackbar }) {
               }
             />
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Select Allowed Notice Types:
-            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Select Allowed Notice Types ({formData.permissions.length} selected):
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button
+                  size="small"
+                  startIcon={<SelectAllIcon fontSize="small" />}
+                  onClick={handleSelectAll}
+                  sx={{ textTransform: "none", fontSize: "0.8rem", color: "#830001" }}
+                >
+                  Select All
+                </Button>
+                <Button
+                  size="small"
+                  startIcon={<DeselectIcon fontSize="small" />}
+                  onClick={handleClearAll}
+                  sx={{ textTransform: "none", fontSize: "0.8rem", color: "text.secondary" }}
+                >
+                  Clear All
+                </Button>
+              </Box>
+            </Box>
 
-            <FormGroup sx={{ pl: 1 }}>
+            <Box
+              sx={{
+                maxHeight: "380px",
+                overflowY: "auto",
+                pr: 1,
+                border: "1px solid #e0e0e0",
+                borderRadius: 2,
+                p: 1.5,
+                backgroundColor: "#fafafa",
+              }}
+            >
               {AVAILABLE_PERMISSIONS.map((perm) => {
                 const checked = formData.permissions.includes(perm.key);
                 return (
@@ -423,50 +455,61 @@ export default function PermissionTab({ showSnackbar }) {
                     sx={{
                       display: "flex",
                       alignItems: "flex-start",
-                      p: 1.5,
+                      p: 1.2,
                       mb: 1,
                       borderRadius: 1.5,
                       border: "1px solid",
                       borderColor: checked ? perm.color : "#e0e0e0",
-                      backgroundColor: checked ? `${perm.color}08` : "transparent",
+                      backgroundColor: checked ? `${perm.color}0a` : "#ffffff",
                       cursor: "pointer",
                       transition: "all 0.15s ease",
+                      userSelect: "none",
                       "&:hover": {
                         borderColor: perm.color,
-                        backgroundColor: `${perm.color}05`,
+                        backgroundColor: `${perm.color}08`,
                       },
                     }}
                   >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={checked}
-                          onChange={() => handleTogglePermission(perm.key)}
+                    <Checkbox
+                      checked={checked}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleTogglePermission(perm.key);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      sx={{
+                        color: perm.color,
+                        "&.Mui-checked": { color: perm.color },
+                        p: 0.5,
+                        mr: 1.5,
+                        mt: 0.1,
+                      }}
+                    />
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: "#333" }}>
+                          {perm.label}
+                        </Typography>
+                        <Chip
+                          label={perm.key}
+                          size="small"
                           sx={{
+                            height: "18px",
+                            fontSize: "0.68rem",
+                            backgroundColor: `${perm.color}15`,
                             color: perm.color,
-                            "&.Mui-checked": { color: perm.color },
-                            p: 0,
-                            mr: 1.5,
-                            mt: 0.2,
+                            fontWeight: 600,
                           }}
                         />
-                      }
-                      label={
-                        <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 600, color: "#333" }}>
-                            {perm.label}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {perm.description}
-                          </Typography>
-                        </Box>
-                      }
-                      sx={{ width: "100%", m: 0, alignItems: "flex-start" }}
-                    />
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.3 }}>
+                        {perm.description}
+                      </Typography>
+                    </Box>
                   </Box>
                 );
               })}
-            </FormGroup>
+            </Box>
           </DialogContent>
 
           <DialogActions sx={{ p: 2 }}>
@@ -505,7 +548,7 @@ export default function PermissionTab({ showSnackbar }) {
             <strong>{deleteDialog.email}</strong>?
             <br />
             <br />
-            This will immediately remove their access to publish and edit notices. Their faculty profile will remain untouched.
+            This will immediately remove their access to publish and edit notices. Their user profile will remain untouched.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
