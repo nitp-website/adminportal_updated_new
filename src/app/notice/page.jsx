@@ -51,7 +51,7 @@ export default function Page() {
                 if (userRole === "SUPER_ADMIN") {
                     // Super Admin fetches all notices
                 } else if (userRole === "ACADEMIC_ADMIN") {
-                    baseTypes = ["academics", "department"];
+                    baseTypes = ["academics"];
                 } else if (userRole === "DEPT_ADMIN") {
                     baseTypes = ["department"];
                 } else if (userRole === "TENDER_NOTICE_ADMIN") {

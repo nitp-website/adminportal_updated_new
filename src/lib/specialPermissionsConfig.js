@@ -12,5 +12,6 @@ export const PERMISSION_CONFIG = [
   { key: 'senateminutes', label: 'Senate Minutes', description: 'Senate meeting proceedings, resolutions, and minutes', color: '#455a64' },
   { key: 'annualreport', label: 'Annual Reports', description: 'Institute annual reports and official documentation', color: '#263238' },
   { key: 'newcampus', label: 'New Campus Notices', description: 'Updates and notifications regarding the Bihta new campus', color: '#004d40' },
+  { key: 'convocation', label: 'Convocation Notices', description: 'Publish, edit, and delete convocation notices, schedules, and circulars', color: '#b71c1c' },
 ];
 

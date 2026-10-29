@@ -9,7 +9,8 @@ export const administrationList = new Map([
   ['senateminutes', 'Senate Minutes'],
   ['annualreport', 'Annual Reports'],
   ['newcampus', 'New Campus'],
-  ['admissions', 'Admissions']
+  ['admissions', 'Admissions'],
+  ['convocation', 'Convocation']
 ])
 
 export const notice_sub_types = {

@@ -170,7 +170,7 @@ export async function PUT(request) {
 
       const isAuthorizedForType = (typeToCheck, deptToCheck) => {
         if (session.user.role === 'SUPER_ADMIN') return true;
-        if (session.user.role === 'ACADEMIC_ADMIN' && (typeToCheck === 'academics' || typeToCheck === 'department')) return true;
+        if (session.user.role === 'ACADEMIC_ADMIN' && typeToCheck === 'academics') return true;
         if (session.user.role === 'DEPT_ADMIN' && typeToCheck === 'department' && deptToCheck === session.user.department) return true;
         if (session.user.role === 'TENDER_NOTICE_ADMIN' && typeToCheck === 'tender') return true;
         if (session.user.role === 'EXAM_ADMIN' && typeToCheck === 'exam') return true;

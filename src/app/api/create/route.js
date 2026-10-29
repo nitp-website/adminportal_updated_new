@@ -42,7 +42,7 @@ export async function POST(request) {
       const canCreateNotice = 
         session.user.role === 'SUPER_ADMIN' ||
         (session.user.role === 'DEPT_ADMIN' && targetType === 'department' && params.data.department === session.user.department) ||
-        (session.user.role === 'ACADEMIC_ADMIN' && (targetType === 'academics' || targetType === 'department')) ||
+        (session.user.role === 'ACADEMIC_ADMIN' && targetType === 'academics') ||
         (session.user.role === 'TENDER_NOTICE_ADMIN' && targetType === 'tender') ||
         (session.user.role === 'EXAM_ADMIN' && targetType === 'exam') ||
         userSpecialPerms.includes(targetType);

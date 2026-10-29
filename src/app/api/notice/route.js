@@ -83,6 +83,12 @@ export async function GET(request) {
         }
         break;
 
+      case "convocation":
+        const convCount = await query(`SELECT COUNT(*) as count FROM notices WHERE LOWER(notice_type) = 'convocation'`);
+        total = Number(convCount[0].count);
+        results = await query(`SELECT * FROM notices WHERE LOWER(notice_type) = 'convocation' ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`);
+        break;
+
       default:
         if (administrationList.has(type?.trim()?.toLowerCase())) {
           if (noticeSubType) {

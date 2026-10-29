@@ -70,8 +70,8 @@ const canUserManageNotice = (notice, session) => {
     // 1. Granted via special permissions
     if (specialPerms.includes(nType)) return true;
 
-    // 2. Academic Admin can manage academic and department notices
-    if (session.user.role === 'ACADEMIC_ADMIN' && (nType === 'academics' || nType === 'department')) {
+    // 2. Academic Admin can manage academic notices
+    if (session.user.role === 'ACADEMIC_ADMIN' && nType === 'academics') {
         return true;
     }
 
@@ -244,7 +244,7 @@ const DataDisplay = ({ data }) => {
         if (session.user.role === 'SUPER_ADMIN') return [];
 
         const baseTypes = [];
-        if (session.user.role === 'ACADEMIC_ADMIN') baseTypes.push('academics', 'department');
+        if (session.user.role === 'ACADEMIC_ADMIN') baseTypes.push('academics');
         else if (session.user.role === 'DEPT_ADMIN') baseTypes.push('department');
         else if (session.user.role === 'TENDER_NOTICE_ADMIN') baseTypes.push('tender');
         else if (session.user.role === 'EXAM_ADMIN') baseTypes.push('exam');
@@ -355,13 +355,14 @@ const DataDisplay = ({ data }) => {
             if (t === 'exam') return 'Exam Notices';
             if (t === 'admissions') return 'Admissions Notices';
             if (t === 'job') return 'Recruitment (Job) Notices';
+            if (t === 'convocation') return 'Convocation Notices';
             return `${t.charAt(0).toUpperCase() + t.slice(1)} Notices`;
         }
 
         if (session?.user?.role === 'ACADEMIC_ADMIN') {
             const special = session?.user?.specialPermissions || [];
-            if (special.length > 0) return 'Academic, Department & Delegated Notices';
-            return 'Academic & Department Notices';
+            if (special.length > 0) return 'Academic & Delegated Notices';
+            return 'Academic Notices';
         }
 
         if (session?.user?.role === 'DEPT_ADMIN') {

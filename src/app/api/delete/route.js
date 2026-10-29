@@ -57,7 +57,7 @@ export async function POST(request) {
 
       const canDeleteNotice = 
         session.user.role === 'SUPER_ADMIN' ||
-        (session.user.role === 'ACADEMIC_ADMIN' && (nType === 'academics' || nType === 'department')) ||
+        (session.user.role === 'ACADEMIC_ADMIN' && nType === 'academics') ||
         (session.user.role === 'DEPT_ADMIN' && 
          nType === 'department' && 
          noticeData.department === session.user.department) ||

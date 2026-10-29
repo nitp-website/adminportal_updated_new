@@ -141,7 +141,7 @@ export const EditForm = ({ data, handleClose, modal }) => {
 
         const baseKeys = [];
         if (session.user.role === 'ACADEMIC_ADMIN') {
-            baseKeys.push('academics', 'department');
+            baseKeys.push('academics');
         } else if (session.user.role === 'DEPT_ADMIN') {
             baseKeys.push('department');
         } else if (session.user.role === 'TENDER_NOTICE_ADMIN') {
@@ -171,7 +171,8 @@ export const EditForm = ({ data, handleClose, modal }) => {
             bogminutes: 'BOG/FC/BWC Minutes',
             senateminutes: 'Senate Minutes',
             annualreport: 'Annual Reports',
-            newcampus: 'New Campus'
+            newcampus: 'New Campus',
+            convocation: 'Convocation'
         };
 
         return combinedKeys.map((key) => ({
