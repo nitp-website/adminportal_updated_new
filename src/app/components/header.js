@@ -19,6 +19,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import GroupsIcon from '@mui/icons-material/Groups'
 import FolderIcon from '@mui/icons-material/Folder'
+import SchoolIcon from '@mui/icons-material/School'
 import { ROLES } from '@/lib/roles'
 import { useFacultyData } from '@/context/FacultyDataContext'
 
@@ -130,6 +131,7 @@ const menuItems = {
     { text: 'Innovation', href: '/innovation', icon: <LightbulbIcon /> },
     { text: 'Staff Management', href: '/staff-management', icon: <GroupIcon />},
     { text: 'Faculty Management', href: '/faculty-management', icon: <GroupIcon /> },
+    { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> },
     { text: 'Role Management', href: '/role-management', icon: <AdminPanelSettingsIcon /> },
     { text: 'Club Management', href: '/club-management', icon: <GroupsIcon /> },
     { text: 'File Management', href: '/file-management', icon: <FolderIcon /> }
@@ -140,11 +142,13 @@ const menuItems = {
   ],
   [ROLES.ACADEMIC_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
-    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> }
+    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> },
+    { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> }
   ],
   [ROLES.DEPT_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
-    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> }
+    { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> },
+    { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> }
   ],
   [ROLES.FACULTY]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> }
