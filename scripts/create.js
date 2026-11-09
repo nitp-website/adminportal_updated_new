@@ -417,6 +417,24 @@ await query(`CREATE TABLE IF NOT EXISTS webteam (
     role VARCHAR(100)
 );`).catch((e) => console.log(e));
 
+// Students Directory Table
+await query(`CREATE TABLE IF NOT EXISTS students (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    roll_no VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    department VARCHAR(50) NOT NULL,
+    course VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NULL,
+    specialization VARCHAR(150) NULL,
+    enrollment_no VARCHAR(50) NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_students_dept_course (department, course),
+    INDEX idx_students_roll_no (roll_no),
+    INDEX idx_students_name (name)
+);`).catch((e) => console.log(e));
+
     console.log('migration ran successfully')
 }
 
