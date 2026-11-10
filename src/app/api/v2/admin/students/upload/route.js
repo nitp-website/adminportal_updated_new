@@ -3,7 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
 import { ROLES } from '@/lib/roles'
 import { query } from '@/lib/db'
-import { ensureStudentsTable, normalizeStudentRow, normalizeDepartment, normalizeCourse, isPhdCourse } from '@/lib/studentDb'
+import {
+  ensureStudentsTable,
+  normalizeStudentRow,
+  normalizeDepartment,
+  normalizeCourse,
+  isPhdCourse,
+  invalidateStudentMetadataCache,
+} from '@/lib/studentDb'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 
@@ -302,15 +309,17 @@ export async function POST(request) {
           r.specialization,
           r.enrollment_no,
           r.admission_year || null,
-          r.passing_year || null
+          r.passing_year || null,
+          r.active !== undefined ? r.active : 1,
+          r.status || 'active'
         )
         coursesDetected.add(r.course)
         departmentsDetected.add(r.department)
-        return '(?, ?, ?, ?, ?, ?, ?, ?, ?, "active")'
+        return '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       }).join(', ')
 
       const upsertSql = `
-        INSERT INTO students (roll_no, name, department, course, email, specialization, enrollment_no, admission_year, passing_year, status)
+        INSERT INTO students (roll_no, name, department, course, email, specialization, enrollment_no, admission_year, passing_year, active, status)
         VALUES ${placeholders}
         ON DUPLICATE KEY UPDATE
           name = VALUES(name),
@@ -321,13 +330,16 @@ export async function POST(request) {
           enrollment_no = VALUES(enrollment_no),
           admission_year = VALUES(admission_year),
           passing_year = VALUES(passing_year),
-          status = 'active',
+          active = VALUES(active),
+          status = VALUES(status),
           updated_at = CURRENT_TIMESTAMP
       `
 
       await query(upsertSql, values)
       processedCount += chunk.length
     }
+
+    invalidateStudentMetadataCache()
 
     return NextResponse.json({
       success: true,

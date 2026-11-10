@@ -83,26 +83,107 @@ export function normalizeCourse(rawCourse) {
   return trimmed
 }
 
-// Extract joining/admission year from student Roll Number
+// Extract joining/admission year primarily from student email address
 // Examples:
-//  - "2606002" -> 2026
-//  - "2106042" -> 2021
-//  - "2026042" -> 2026
-export function getStudentAdmissionYear(rollNo) {
-  if (!rollNo) return null
-  const str = String(rollNo).trim()
-  const match4 = str.match(/^(20\d{2})/)
-  if (match4) return parseInt(match4[1], 10)
+//  - "test.ug24.cs@nitp.ac.in" -> 2024
+//  - "akshats.dd26.ph@nitp.ac.in" -> 2026
+//  - "student.pg23.me@nitp.ac.in" -> 2023
+//  - "raj.mca22.cs@nitp.ac.in" -> 2022
+//  - "student.26ph@nitp.ac.in" -> 2026
+//  - "john.doe.2024.ece@nitp.ac.in" -> 2024
+export function getAdmissionYearFromEmail(email) {
+  if (!email || typeof email !== 'string') return null
+  const cleanEmail = email.trim().toLowerCase()
+
+  // 1. Degree prefix followed by 2-digit year: e.g. .ug24., .pg23., .dd26., .mca22., .ug20., etc.
+  const matchDegreeYear = cleanEmail.match(/(?:^|[\._])(?:ug|pg|dd|mca|btech|mtech|barc|barch)(\d{2})(?:$|[\._a-z0-9@])/i)
+  if (matchDegreeYear) {
+    const yr = parseInt(matchDegreeYear[1], 10)
+    return yr > 50 ? 1900 + yr : 2000 + yr
+  }
+
+  // 2. Roll number or branch pattern in email: e.g. .2001036@, .2001036.ce@, .2001.ce@, .2001ce@
+  // In all NIT Patna roll/email numbers, the first 2 digits are the year (e.g. 2001036 -> 20 -> 2020)
+  const matchRollInEmail = cleanEmail.match(/(?:^|[\._])(\d{2})\d{2,5}(?:$|[\._a-z@])/i)
+  if (matchRollInEmail) {
+    const yr = parseInt(matchRollInEmail[1], 10)
+    return yr > 50 ? 1900 + yr : 2000 + yr
+  }
+
+  // 3. 2-digit year directly followed by department code before @: e.g. .26ph@, .24cs@, .20ce@
+  const matchYearDept = cleanEmail.match(/(?:^|[\._])(\d{2})[a-z]{2,5}@/i)
+  if (matchYearDept) {
+    const yr = parseInt(matchYearDept[1], 10)
+    return yr > 50 ? 1900 + yr : 2000 + yr
+  }
+
+  // 4. Dot-separated 2-digit year: e.g. .24., .20.
+  const matchDotYear = cleanEmail.match(/\.(\d{2})\./)
+  if (matchDotYear) {
+    const yr = parseInt(matchDotYear[1], 10)
+    return yr > 50 ? 1900 + yr : 2000 + yr
+  }
+
+  return null
+}
+
+// Extract 2-digit admission year from a roll number or enrollment number.
+// At NIT Patna, the first 2 digits of the roll or enrollment number denote the admission year.
+// Examples:
+//  - "2001036" -> first 2 digits "20" -> 2020 (NOT 2001)
+//  - "202543"  -> first 2 digits "20" -> 2020 (NOT 2025)
+//  - "2606002" -> first 2 digits "26" -> 2026
+//  - "2106042" -> first 2 digits "21" -> 2021
+//  - "2406001" -> first 2 digits "24" -> 2024
+//  - "261192"  -> first 2 digits "26" -> 2026
+export function getYearFromRollOrEnrollment(value) {
+  if (!value) return null
+  const str = String(value).trim()
+  if (!str) return null
+
+  // The first 2 digits are always the year data (e.g. 2001036 -> 20 -> 2020, 202543 -> 20 -> 2020)
   const match2 = str.match(/^(\d{2})/)
   if (match2) {
     const yr = parseInt(match2[1], 10)
     return yr > 50 ? 1900 + yr : 2000 + yr
   }
+
+  return null
+}
+
+// Extract joining/admission year with priority:
+// 1. Check student email first (e.g. test.ug24.cs@nitp.ac.in -> 2024)
+// 2. If not found in email, check roll number (first 2 digits, e.g. 202543 -> 2020)
+// 3. If not found in roll number, check enrollment number (first 2 digits, e.g. 201192 -> 2020)
+// Examples:
+//  - "202543"  -> 2020
+//  - "2606002" -> 2026
+//  - "2106042" -> 2021
+export function getStudentAdmissionYear(rollNo, email = null, enrollmentNo = null) {
+  // 1. Check email first
+  if (email) {
+    const emailYear = getAdmissionYearFromEmail(email)
+    if (emailYear) return emailYear
+  }
+
+  // 2. Fallback to roll number (first 2 digits)
+  if (rollNo) {
+    const rollYear = getYearFromRollOrEnrollment(rollNo)
+    if (rollYear) return rollYear
+  }
+
+  // 3. Fallback to enrollment number (first 2 digits)
+  if (enrollmentNo) {
+    const enrollYear = getYearFromRollOrEnrollment(enrollmentNo)
+    if (enrollYear) return enrollYear
+  }
+
   return null
 }
 
 // Returns program duration in years:
-// - M.Tech / MCA: 2 Years
+// - M.Tech: 2 Years
+// - MCA (Master of Computer Applications): 3 Years
 // - Dual Degree: 5 Years
 // - Architecture and Planning (B.Arch): 5 Years
 // - MnC (Mathematics and Computing Technology): 5 Years
@@ -151,9 +232,9 @@ export function getProgramDurationYears(course, department) {
     return 2
   }
 
-  // MCA (2 years)
+  // MCA (3 years)
   if (normCourse.includes('master of computer applications') || normCourse === 'mca') {
-    return 2
+    return 3
   }
 
   // Standard B.Tech (4 years)
@@ -165,8 +246,8 @@ export function getProgramDurationYears(course, department) {
 }
 
 // Calculates expected passing/graduation year
-export function getStudentPassingYear(rollNo, course, department) {
-  const admissionYear = getStudentAdmissionYear(rollNo)
+export function getStudentPassingYear(rollNo, course, department, email = null, enrollmentNo = null) {
+  const admissionYear = getStudentAdmissionYear(rollNo, email, enrollmentNo)
   if (!admissionYear) return null
   const duration = getProgramDurationYears(course, department)
   return admissionYear + duration
@@ -174,13 +255,16 @@ export function getStudentPassingYear(rollNo, course, department) {
 
 // Determines if a student has graduated as of a specific date (cutoff July 1st of passing year)
 export function isStudentGraduated(student, asOfDate = new Date()) {
-  if (!student || !student.roll_no) return false
+  if (!student) return false
   if (isPhdCourse(student.course)) return false // Ph.D is strictly ignored
 
-  const admissionYear = getStudentAdmissionYear(student.roll_no)
-  if (!admissionYear) return false
-  const duration = getProgramDurationYears(student.course, student.department)
-  const passingYear = admissionYear + duration
+  let passingYear = student.passing_year
+  if (!passingYear) {
+    const admissionYear = student.admission_year || getStudentAdmissionYear(student.roll_no, student.email, student.enrollment_no)
+    if (!admissionYear) return false
+    const duration = getProgramDurationYears(student.course, student.department)
+    passingYear = admissionYear + duration
+  }
 
   const currentYear = asOfDate.getFullYear()
   const currentMonth = asOfDate.getMonth() + 1 // 1-12
@@ -474,8 +558,11 @@ export function normalizeStudentRow(rawRow) {
   const course = normalizeCourse(row['course'] || row['program'] || row['degree'] || '')
   const email = row['nitpemail'] || row['email'] || row['instituteemail'] || ''
   const specialization = row['specialization'] || row['spec'] || ''
-  const admission_year = getStudentAdmissionYear(roll_no)
-  const passing_year = getStudentPassingYear(roll_no, course, department)
+  const admission_year = getStudentAdmissionYear(roll_no, email, enrollment_no)
+  const passing_year = getStudentPassingYear(roll_no, course, department, email, enrollment_no)
+  const isGrad = isStudentGraduated({ roll_no, email, enrollment_no, course, department, admission_year, passing_year })
+  const active = isGrad ? 0 : 1
+  const status = isGrad ? 'graduated' : 'active'
 
   return {
     roll_no,
@@ -487,6 +574,8 @@ export function normalizeStudentRow(rawRow) {
     enrollment_no: enrollment_no || null,
     admission_year,
     passing_year,
+    active,
+    status,
   }
 }
 
