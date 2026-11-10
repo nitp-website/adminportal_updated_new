@@ -12,6 +12,10 @@ import {
   isPhdCourse,
   getStudentAdmissionYear,
   getStudentPassingYear,
+  syncStudentGraduationStatus,
+  getCachedAvailableCourses,
+  getCachedAvailableYears,
+  invalidateStudentMetadataCache,
 } from '@/lib/studentDb'
 
 function isAuthorized(session) {
@@ -37,10 +41,7 @@ function isSuperOrAcademicAdmin(session) {
   )
 }
 
-/**
- * GET /api/v2/admin/students
- * Admin view of students with filtering and pagination.
- */
+
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions)
@@ -53,6 +54,8 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     let department = searchParams.get('department')?.trim()
     const courseParam = searchParams.get('course')?.trim()
+    const rawActive = searchParams.get('active')?.trim()
+    const rawYear = searchParams.get('year')?.trim() || searchParams.get('admission_year')?.trim()
     const search = searchParams.get('search')?.trim() || ''
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
@@ -68,7 +71,7 @@ export async function GET(request) {
     // Check if client is requesting a preview/count of graduated students
     if (searchParams.get('graduated_preview') === 'true') {
       let gradSql = `
-        SELECT id, roll_no, name, department, course, admission_year, passing_year
+        SELECT id, roll_no, name, department, course, admission_year, passing_year, active, status
         FROM students
         WHERE (course NOT LIKE '%Doctor of Philosophy%' AND course NOT LIKE '%Ph.D%' AND course NOT LIKE '%PhD%')
       `
@@ -98,13 +101,27 @@ export async function GET(request) {
     ]
     const params = []
 
-    const isAllDept = !department || department.toLowerCase() === 'all'
-    if (!isAllDept) {
-      const candidates = getDepartmentQueryCandidates(department)
-      if (candidates.length > 0) {
-        conditions.push(`department IN (${candidates.map(() => '?').join(', ')})`)
-        params.push(...candidates)
+    // Active status filter: "1" = Active only, "0" = Graduated / Archives only, "all" = All (default)
+    if (rawActive === '1') {
+      conditions.push('active = 1')
+    } else if (rawActive === '0') {
+      conditions.push('active = 0')
+    }
+
+    // Joining / Admission Year filter
+    if (rawYear && rawYear !== 'All' && rawYear !== 'all') {
+      const parsedYear = parseInt(rawYear, 10)
+      if (!isNaN(parsedYear)) {
+        conditions.push('admission_year = ?')
+        params.push(parsedYear)
       }
+    }
+
+    const isAllDept = !department || department.toLowerCase() === 'all'
+    const deptCandidates = !isAllDept ? getDepartmentQueryCandidates(department) : []
+    if (deptCandidates.length > 0) {
+      conditions.push(`department IN (${deptCandidates.map(() => '?').join(', ')})`)
+      params.push(...deptCandidates)
     }
 
     if (courseParam && courseParam !== 'All' && courseParam !== 'All Courses') {
@@ -122,32 +139,25 @@ export async function GET(request) {
 
     // 1. Fetch paginated data
     const dataSql = `
-      SELECT id, roll_no, name, department, course, email, specialization, enrollment_no, status, updated_at
+      SELECT id, roll_no, name, department, course, email, specialization, enrollment_no, admission_year, passing_year, active, status, updated_at
       FROM students
       WHERE ${whereClause}
       ORDER BY department ASC, course ASC, roll_no ASC
       LIMIT ? OFFSET ?
     `
-    const students = await query(dataSql, [...params, limit, offset])
 
     // 2. Fetch total count
     const countSql = `SELECT COUNT(*) AS total FROM students WHERE ${whereClause}`
-    const countResult = await query(countSql, params)
-    const total = countResult[0]?.total || 0
 
-    // 3. Fetch distinct courses available (excluding Ph.D)
-    let courseSql = 'SELECT DISTINCT course FROM students WHERE course IS NOT NULL AND course != "" AND (course NOT LIKE "%Doctor of Philosophy%" AND course NOT LIKE "%Ph.D%" AND course NOT LIKE "%PhD%")'
-    const courseParams = []
-    if (!isAllDept) {
-      const candidates = getDepartmentQueryCandidates(department)
-      if (candidates.length > 0) {
-        courseSql += ` AND department IN (${candidates.map(() => '?').join(', ')})`
-        courseParams.push(...candidates)
-      }
-    }
-    courseSql += ' ORDER BY course ASC'
-    const courseResults = await query(courseSql, courseParams)
-    const availableCourses = courseResults.map(r => r.course).filter(Boolean)
+    // Run parallel queries with caching for instant responses even with 10,000+ records
+    const [students, countResult, availableCourses, availableYears] = await Promise.all([
+      query(dataSql, [...params, limit, offset]),
+      query(countSql, params),
+      getCachedAvailableCourses(deptCandidates),
+      getCachedAvailableYears(deptCandidates),
+    ])
+
+    const total = countResult[0]?.total || 0
 
     return NextResponse.json({
       success: true,
@@ -158,7 +168,10 @@ export async function GET(request) {
         limit,
         totalPages: Math.ceil(total / limit) || 1,
         availableCourses,
+        availableYears,
         department: isAllDept ? 'All' : department,
+        selectedYear: rawYear && rawYear !== 'All' ? parseInt(rawYear, 10) : 'All',
+        selectedActive: rawActive || 'all',
       },
     })
   } catch (error) {
@@ -167,10 +180,7 @@ export async function GET(request) {
   }
 }
 
-/**
- * POST /api/v2/admin/students
- * Add a single student record manually.
- */
+
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions)
@@ -195,8 +205,11 @@ export async function POST(request) {
     const email = body.email?.trim() || null
     const specialization = body.specialization?.trim() || null
     const enrollment_no = body.enrollment_no?.trim() || null
-    const admission_year = getStudentAdmissionYear(roll_no)
-    const passing_year = getStudentPassingYear(roll_no, course, department)
+    const admission_year = getStudentAdmissionYear(roll_no, email, enrollment_no)
+    const passing_year = getStudentPassingYear(roll_no, course, department, email, enrollment_no)
+    const isGrad = isStudentGraduated({ roll_no, email, enrollment_no, course, department, admission_year, passing_year })
+    const active = body.active !== undefined ? (body.active ? 1 : 0) : (isGrad ? 0 : 1)
+    const status = isGrad ? 'graduated' : (body.status || 'active')
 
     if (!roll_no || !name || !department || !course) {
       return NextResponse.json(
@@ -216,8 +229,8 @@ export async function POST(request) {
     }
 
     const insertSql = `
-      INSERT INTO students (roll_no, name, department, course, email, specialization, enrollment_no, admission_year, passing_year, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+      INSERT INTO students (roll_no, name, department, course, email, specialization, enrollment_no, admission_year, passing_year, active, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         name = VALUES(name),
         department = VALUES(department),
@@ -227,10 +240,12 @@ export async function POST(request) {
         enrollment_no = VALUES(enrollment_no),
         admission_year = VALUES(admission_year),
         passing_year = VALUES(passing_year),
-        status = 'active',
+        active = VALUES(active),
+        status = VALUES(status),
         updated_at = CURRENT_TIMESTAMP
     `
-    await query(insertSql, [roll_no, name, department, course, email, specialization, enrollment_no, admission_year, passing_year])
+    await query(insertSql, [roll_no, name, department, course, email, specialization, enrollment_no, admission_year, passing_year, active, status])
+    invalidateStudentMetadataCache()
 
     return NextResponse.json({
       success: true,
@@ -242,10 +257,6 @@ export async function POST(request) {
   }
 }
 
-/**
- * PUT /api/v2/admin/students
- * Update an existing student record.
- */
 export async function PUT(request) {
   try {
     const session = await getServerSession(authOptions)
@@ -255,7 +266,7 @@ export async function PUT(request) {
 
     await ensureStudentsTable()
     const body = await request.json()
-    const { id, roll_no, name, department, course, email, specialization, enrollment_no, status } = body
+    const { id, roll_no, name, department, course, email, specialization, enrollment_no, active: reqActive, status: reqStatus } = body
 
     if (!id && !roll_no) {
       return NextResponse.json({ success: false, message: 'Student id or roll_no is required.' }, { status: 400 })
@@ -278,8 +289,13 @@ export async function PUT(request) {
     const updatedDept = department ? normalizeDepartment(department) : current.department
     const updatedCourse = course ? normalizeCourse(course) : current.course
     const effectiveRoll = roll_no?.trim() || current.roll_no
-    const admission_year = getStudentAdmissionYear(effectiveRoll)
-    const passing_year = getStudentPassingYear(effectiveRoll, updatedCourse, updatedDept)
+    const effectiveEmail = email !== undefined ? (email?.trim() || null) : current.email
+    const effectiveEnrollment = enrollment_no !== undefined ? (enrollment_no?.trim() || null) : current.enrollment_no
+    const admission_year = getStudentAdmissionYear(effectiveRoll, effectiveEmail, effectiveEnrollment)
+    const passing_year = getStudentPassingYear(effectiveRoll, updatedCourse, updatedDept, effectiveEmail, effectiveEnrollment)
+    const isGrad = isStudentGraduated({ roll_no: effectiveRoll, email: effectiveEmail, enrollment_no: effectiveEnrollment, course: updatedCourse, department: updatedDept, admission_year, passing_year })
+    const active = reqActive !== undefined ? (reqActive ? 1 : 0) : (isGrad ? 0 : 1)
+    const status = reqStatus || (isGrad ? 'graduated' : (current.status || 'active'))
 
     const updateSql = `
       UPDATE students
@@ -293,6 +309,7 @@ export async function PUT(request) {
         enrollment_no = ?,
         admission_year = ?,
         passing_year = ?,
+        active = ?,
         status = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
@@ -302,14 +319,16 @@ export async function PUT(request) {
       name?.trim() || current.name,
       updatedDept,
       updatedCourse,
-      email !== undefined ? (email?.trim() || null) : current.email,
+      effectiveEmail,
       specialization !== undefined ? (specialization?.trim() || null) : current.specialization,
       enrollment_no !== undefined ? (enrollment_no?.trim() || null) : current.enrollment_no,
       admission_year,
       passing_year,
-      status || current.status,
+      active,
+      status,
       current.id,
     ])
+    invalidateStudentMetadataCache()
 
     return NextResponse.json({ success: true, message: 'Student record updated successfully.' })
   } catch (error) {
@@ -318,13 +337,28 @@ export async function PUT(request) {
   }
 }
 
-/**
- * DELETE /api/v2/admin/students
- * Supports deleting:
- *  - Single student by `roll_no` or `id`
- *  - Course batch by `department` + `course`
- *  - Entire department student list by `department`
- */
+
+export async function PATCH(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!isAuthorized(session)) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
+    }
+
+    await ensureStudentsTable()
+    await syncStudentGraduationStatus()
+
+    return NextResponse.json({
+      success: true,
+      message: 'Graduation status and active flags synchronized successfully.',
+    })
+  } catch (error) {
+    console.error('Admin PATCH student error:', error)
+    return NextResponse.json({ success: false, message: error.message || 'Server error' }, { status: 500 })
+  }
+}
+
+
 export async function DELETE(request) {
   try {
     const session = await getServerSession(authOptions)
@@ -339,6 +373,7 @@ export async function DELETE(request) {
     const id = searchParams.get('id')
     const deleteAll = searchParams.get('all') === 'true'
     const deleteGraduated = searchParams.get('graduated') === 'true'
+    const archiveGraduated = searchParams.get('archive_graduated') === 'true'
     let department = searchParams.get('department')?.trim()
     const courseParam = searchParams.get('course')?.trim()
 
@@ -348,50 +383,47 @@ export async function DELETE(request) {
     // 0. Wipe entire table if super admin requests
     if (deleteAll && !isDeptAdminOnly) {
       await query('DELETE FROM students')
+      invalidateStudentMetadataCache()
       return NextResponse.json({ success: true, message: 'All student records cleared successfully.' })
+    }
+
+    // 0.25. Archive graduated students (set active = 0)
+    if (archiveGraduated) {
+      await syncStudentGraduationStatus()
+      invalidateStudentMetadataCache()
+      return NextResponse.json({
+        success: true,
+        message: 'All graduated student records have been archived (active = 0).',
+      })
     }
 
     // 0.5. Hard delete all graduated students based on their course and department academic duration
     if (deleteGraduated) {
-      let gradSql = `
-        SELECT id, roll_no, department, course, admission_year, passing_year
-        FROM students
-        WHERE (course NOT LIKE '%Doctor of Philosophy%' AND course NOT LIKE '%Ph.D%' AND course NOT LIKE '%PhD%')
+      // First ensure graduation flags are synchronized
+      await syncStudentGraduationStatus()
+
+      let delGradSql = `
+        DELETE FROM students
+        WHERE active = 0
+          AND (course NOT LIKE '%Doctor of Philosophy%' AND course NOT LIKE '%Ph.D%' AND course NOT LIKE '%PhD%')
       `
-      const gradParams = []
+      const delGradParams = []
       if (isDeptAdminOnly) {
-        gradSql += ' AND department = ?'
-        gradParams.push(userDept)
+        delGradSql += ' AND department = ?'
+        delGradParams.push(userDept)
       } else if (department && department !== 'All' && department !== 'all') {
         const candidates = getDepartmentQueryCandidates(department)
-        gradSql += ` AND department IN (${candidates.map(() => '?').join(', ')})`
-        gradParams.push(...candidates)
+        delGradSql += ` AND department IN (${candidates.map(() => '?').join(', ')})`
+        delGradParams.push(...candidates)
       }
 
-      const allRows = await query(gradSql, gradParams)
-      const toDelete = allRows.filter(s => isStudentGraduated(s))
-
-      if (toDelete.length === 0) {
-        return NextResponse.json({
-          success: true,
-          message: 'No graduated student records found to delete.',
-          deletedCount: 0,
-        })
-      }
-
-      // Hard delete in chunks of 150
-      const rollNos = toDelete.map(s => s.roll_no)
-      const CHUNK_SIZE = 150
-      for (let i = 0; i < rollNos.length; i += CHUNK_SIZE) {
-        const chunk = rollNos.slice(i, i + CHUNK_SIZE)
-        const placeholders = chunk.map(() => '?').join(', ')
-        await query(`DELETE FROM students WHERE roll_no IN (${placeholders})`, chunk)
-      }
+      const result = await query(delGradSql, delGradParams)
+      invalidateStudentMetadataCache()
 
       return NextResponse.json({
         success: true,
-        message: `Successfully hard-deleted ${rollNos.length} graduated student record(s).`,
-        deletedCount: rollNos.length,
+        message: `Successfully hard-deleted graduated student record(s).`,
+        deletedCount: result?.affectedRows || 0,
       })
     }
 
@@ -406,6 +438,7 @@ export async function DELETE(request) {
       }
 
       await query('DELETE FROM students WHERE roll_no = ? OR id = ?', [roll_no || null, id || null])
+      invalidateStudentMetadataCache()
       return NextResponse.json({ success: true, message: `Student deleted successfully.` })
     }
 
@@ -428,12 +461,14 @@ export async function DELETE(request) {
     if (courseParam) {
       const course = normalizeCourse(courseParam)
       await query(`DELETE FROM students WHERE department IN (${placeholders}) AND course = ?`, [...candidates, course])
+      invalidateStudentMetadataCache()
       return NextResponse.json({
         success: true,
         message: `Successfully deleted student records for ${normDept} - ${course}.`,
       })
     } else {
       await query(`DELETE FROM students WHERE department IN (${placeholders})`, candidates)
+      invalidateStudentMetadataCache()
       return NextResponse.json({
         success: true,
         message: `Successfully deleted all student records for ${normDept}.`,

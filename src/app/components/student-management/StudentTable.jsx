@@ -59,6 +59,8 @@ export default function StudentTable({ session }) {
   // Filter state (defaults to 'All' for Super Admin and Academic Admin)
   const [department, setDepartment] = useState(isSuperOrAcademic ? 'All' : userDept)
   const [course, setCourse] = useState('All Courses')
+  const [year, setYear] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('all') // 'all', 'active', 'archived'
   const [searchTerm, setSearchTerm] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(0)
@@ -68,6 +70,7 @@ export default function StudentTable({ session }) {
   const [students, setStudents] = useState([])
   const [total, setTotal] = useState(0)
   const [availableCourses, setAvailableCourses] = useState([])
+  const [availableYears, setAvailableYears] = useState([])
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState({ show: false, message: '', severity: 'info' })
 
@@ -122,6 +125,16 @@ export default function StudentTable({ session }) {
       if (course && course !== 'All Courses') {
         params.append('course', course)
       }
+      if (year && year !== 'All') {
+        params.append('year', year)
+      }
+      if (statusFilter === 'active') {
+        params.append('active', '1')
+      } else if (statusFilter === 'archived') {
+        params.append('active', '0')
+      } else {
+        params.append('active', 'all')
+      }
       if (searchTerm) {
         params.append('search', searchTerm)
       }
@@ -135,6 +148,9 @@ export default function StudentTable({ session }) {
         if (json.meta?.availableCourses) {
           setAvailableCourses(json.meta.availableCourses)
         }
+        if (json.meta?.availableYears) {
+          setAvailableYears(json.meta.availableYears)
+        }
       } else {
         setAlert({ show: true, message: json.message || 'Failed to fetch students', severity: 'error' })
       }
@@ -144,7 +160,7 @@ export default function StudentTable({ session }) {
     } finally {
       setLoading(false)
     }
-  }, [department, course, searchTerm, page, rowsPerPage])
+  }, [department, course, year, statusFilter, searchTerm, page, rowsPerPage])
 
   useEffect(() => {
     fetchStudents()
@@ -325,23 +341,6 @@ export default function StudentTable({ session }) {
             Add Student
           </Button>
 
-          {/* Prominent Top Delete Records Button */}
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => {
-              setDeleteDialog({
-                open: true,
-                type: 'batch',
-                student: null,
-                batchScope: department !== 'All' ? (course !== 'All Courses' ? 'course_batch' : 'dept_all') : 'all_students',
-              })
-            }}
-          >
-            Delete Records
-          </Button>
-
           {/* Delete Graduated Students Button */}
           <Button
             variant="outlined"
@@ -364,6 +363,23 @@ export default function StudentTable({ session }) {
             Delete Graduated
           </Button>
 
+          {/* Prominent Top Delete Records Button */}
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => {
+              setDeleteDialog({
+                open: true,
+                type: 'batch',
+                student: null,
+                batchScope: department !== 'All' ? (course !== 'All Courses' ? 'course_batch' : 'dept_all') : 'all_students',
+              })
+            }}
+          >
+            Delete Records
+          </Button>
+
           <IconButton onClick={fetchStudents} title="Refresh">
             <RefreshIcon />
           </IconButton>
@@ -383,9 +399,9 @@ export default function StudentTable({ session }) {
 
       {/* Filters Bar */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" flexWrap="wrap">
           {/* Department Selector */}
-          <FormControl sx={{ minWidth: 260 }} size="small" disabled={!isSuperOrAcademic}>
+          <FormControl sx={{ minWidth: 220, flex: { xs: '1 1 100%', sm: '1 1 auto' } }} size="small" disabled={!isSuperOrAcademic}>
             <InputLabel id="dept-select-label">Department</InputLabel>
             <Select
               labelId="dept-select-label"
@@ -406,7 +422,7 @@ export default function StudentTable({ session }) {
           </FormControl>
 
           {/* Course Filter */}
-          <FormControl sx={{ minWidth: 260 }} size="small">
+          <FormControl sx={{ minWidth: 220, flex: { xs: '1 1 100%', sm: '1 1 auto' } }} size="small">
             <InputLabel id="course-select-label">Course / Program</InputLabel>
             <Select
               labelId="course-select-label"
@@ -425,6 +441,45 @@ export default function StudentTable({ session }) {
             </Select>
           </FormControl>
 
+          {/* Joining Year Filter */}
+          <FormControl sx={{ minWidth: 150 }} size="small">
+            <InputLabel id="year-select-label">Joining Year</InputLabel>
+            <Select
+              labelId="year-select-label"
+              value={year}
+              label="Joining Year"
+              onChange={(e) => {
+                setYear(e.target.value)
+                setPage(0)
+              }}
+            >
+              <MenuItem value="All">All Years</MenuItem>
+              {availableYears.map((yr) => (
+                <MenuItem key={yr} value={yr}>
+                  {yr}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Status Filter */}
+          <FormControl sx={{ minWidth: 160 }} size="small">
+            <InputLabel id="status-select-label">Status</InputLabel>
+            <Select
+              labelId="status-select-label"
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setPage(0)
+              }}
+            >
+              <MenuItem value="all">All Students</MenuItem>
+              <MenuItem value="active">Active Only</MenuItem>
+              <MenuItem value="archived">Archived / Graduated</MenuItem>
+            </Select>
+          </FormControl>
+
           {/* Search Box */}
           <TextField
             size="small"
@@ -434,7 +489,7 @@ export default function StudentTable({ session }) {
             InputProps={{
               startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1, fontSize: 20 }} />,
             }}
-            sx={{ flex: 1, minWidth: 220 }}
+            sx={{ flex: 1, minWidth: 200 }}
           />
         </Stack>
       </Paper>
@@ -449,7 +504,9 @@ export default function StudentTable({ session }) {
                 <TableCell>Name</TableCell>
                 <TableCell>Course</TableCell>
                 <TableCell>Department</TableCell>
+                <TableCell>Joining Year</TableCell>
                 <TableCell>NITP Email</TableCell>
+                <TableCell>Status</TableCell>
                 <TableCell>Specialization</TableCell>
                 <TableCell>Enrollment No</TableCell>
                 <TableCell align="center">Actions</TableCell>
@@ -458,7 +515,7 @@ export default function StudentTable({ session }) {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} sx={{ color: '#830001', mb: 1 }} />
                     <Typography variant="body2" color="text.secondary">
                       Loading students...
@@ -467,7 +524,7 @@ export default function StudentTable({ session }) {
                 </TableRow>
               ) : students.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                     <Typography variant="body1" sx={{ fontWeight: 500, color: 'text.secondary' }}>
                       No student records found.
                     </Typography>
@@ -514,12 +571,49 @@ export default function StudentTable({ session }) {
                       {student.department}
                     </TableCell>
                     <TableCell>
+                      {student.admission_year ? (
+                        <Chip
+                          label={student.admission_year}
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontWeight: 600, color: '#333', borderColor: '#ccc' }}
+                        />
+                      ) : (
+                        <span style={{ color: '#aaa' }}>—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       {student.email ? (
                         <a href={`mailto:${student.email}`} style={{ color: '#830001', textDecoration: 'none' }}>
                           {student.email}
                         </a>
                       ) : (
                         <span style={{ color: '#aaa' }}>—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {student.active === 0 || student.status === 'graduated' ? (
+                        <Chip
+                          label="Archived"
+                          size="small"
+                          sx={{
+                            backgroundColor: '#fff3e0',
+                            color: '#b23c00',
+                            fontWeight: 600,
+                            border: '1px solid #ffcc80',
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          label="Active"
+                          size="small"
+                          sx={{
+                            backgroundColor: '#e8f5e9',
+                            color: '#2e7d32',
+                            fontWeight: 600,
+                            border: '1px solid #c8e6c9',
+                          }}
+                        />
                       )}
                     </TableCell>
                     <TableCell>{student.specialization || '—'}</TableCell>
@@ -846,7 +940,14 @@ export default function StudentTable({ session }) {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            color: 'error.main',
+          }}
+        >
           <WarningAmberIcon color="error" />
           Confirm Deletion
         </DialogTitle>
@@ -864,7 +965,8 @@ export default function StudentTable({ session }) {
                 Graduation criteria evaluated:
               </Typography>
               <Box component="ul" sx={{ pl: 2.5, m: 0, fontSize: '0.85rem', color: 'text.secondary' }}>
-                <li><strong>M.Tech & MCA:</strong> 2 Years duration</li>
+                <li><strong>M.Tech:</strong> 2 Years duration</li>
+                <li><strong>MCA:</strong> 3 Years duration</li>
                 <li><strong>B.Tech (General):</strong> 4 Years duration</li>
                 <li><strong>Architecture & Planning:</strong> 5 Years duration</li>
                 <li><strong>MnC (Mathematics & Computing):</strong> 5 Years duration</li>
@@ -872,7 +974,7 @@ export default function StudentTable({ session }) {
                 <li><strong>Dual Degree (B.Tech + M.Tech):</strong> 5 Years duration</li>
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-                • Admission year is determined from roll number prefix (e.g. 21xxxxx = 2021).<br />
+                • Admission year is determined from student email (e.g. ug24 = 2024), with fallback to roll number.<br />
                 • Ph.D scholars are excluded and will not be affected.
               </Typography>
             </Box>
@@ -894,7 +996,7 @@ export default function StudentTable({ session }) {
                         Delete Graduated Students Only (Hard Delete)
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Hard-deletes all students who have completed their academic term (M.Tech/MCA: 2 yrs, B.Tech: 4 yrs, Architecture/Dual Degree/MnC/CST: 5 yrs).
+                        Hard-deletes all students who have completed their academic term (M.Tech: 2 yrs, MCA: 3 yrs, B.Tech: 4 yrs, Architecture/Dual Degree/MnC/CST: 5 yrs).
                       </Typography>
                     </Box>
                   }
@@ -962,11 +1064,17 @@ export default function StudentTable({ session }) {
           </Button>
           <Button
             variant="contained"
-            color={deleteDialog.type === 'graduated' || deleteDialog.batchScope === 'graduated_students' ? 'warning' : 'error'}
+            color={
+              deleteDialog.type === 'graduated' || deleteDialog.batchScope === 'graduated_students'
+                ? 'warning'
+                : 'error'
+            }
             onClick={handleDeleteSubmit}
             sx={{ fontWeight: 600 }}
           >
-            {deleteDialog.type === 'graduated' || deleteDialog.batchScope === 'graduated_students' ? 'Yes, Hard Delete Graduated' : 'Yes, Delete'}
+            {deleteDialog.type === 'graduated' || deleteDialog.batchScope === 'graduated_students'
+              ? 'Yes, Hard Delete Graduated'
+              : 'Yes, Delete'}
           </Button>
         </DialogActions>
       </Dialog>
