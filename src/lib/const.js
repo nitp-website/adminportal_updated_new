@@ -103,6 +103,9 @@ export const FacultyDesignations = [
   'HOD & Professor',
   'HOD & Associate Professor',
   'Assistant Professor',
+  'Professor of Practice',
+  'Associate Professor of Practice'
+
 ]
 
 
@@ -134,8 +137,8 @@ export const StaffdepList = new Map([
   ['pro', 'Procurement Section'],
   ['exam', 'Exam Section'],
   ['acc', 'Account Section'],
-  ['fac','Faculty Welfare Section'],
-  [ 'rnc', 'Research and Consultancy Section'],
+  ['fac', 'Faculty Welfare Section'],
+  ['rnc', 'Research and Consultancy Section'],
   ['pnd', 'Planning and Development Section'],
   ['erp', 'ERP Section']
 ])
@@ -188,30 +191,30 @@ export const facultyTables = [
   "talks_and_lectures",
   "conference_session_chairs",
   "international_journal_reviewers",
-  
+
   // Projects and Research
   'sponsored_projects',
   'consultancy_projects',
   'ipr',
   'startups',
   'patents',
-  
+
   // Teaching and Supervision
   'teaching_engagement',
   'project_supervision',
-  
+
   // Professional Activities
   'workshops_conferences',
   'institute_activities',
   'department_activities',
   'memberships',
-  
+
   // Background
   'education',
   'work_experience',
   'internships'
 
-  
+
 ]
 
 // For invalidating redis cache of publications
