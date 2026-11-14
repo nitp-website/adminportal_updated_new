@@ -99,6 +99,17 @@ const ViewDetailsModal = ({ open, handleClose, detail }) => {
                         <CloseIcon />
                     </IconButton>
                 </Box>
+                
+                {detail.banner_image && (
+                    <Box sx={{ mt: 2, mb: 2, display: 'flex', justifyContent: 'center' }}>
+                        <img 
+                            src={detail.banner_image} 
+                            alt="Event Banner" 
+                            style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }} 
+                        />
+                    </Box>
+                )}
+
                 <Typography id="modal-description" sx={descriptionStyle}>
                     {detail.description}
                 </Typography>

@@ -157,6 +157,48 @@ export async function POST(request) {
       return NextResponse.json(result)
     }
 
+    if (type === 'guest_lecture') {
+      const canDeleteGuestLecture = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN';
+
+      if (!canDeleteGuestLecture) {
+        return NextResponse.json(
+          { message: 'Not authorized to delete guest lectures' },
+          { status: 403 }
+        );
+      }
+
+      const result = await query(
+        `DELETE FROM guest_lectures WHERE id = ?`,
+        [params.id]
+      );
+      
+      return NextResponse.json(result);
+    }
+
+    if (type === 'institute_lecture') {
+      const canDeleteInstituteLecture = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN';
+
+      if (!canDeleteInstituteLecture) {
+        return NextResponse.json(
+          { message: 'Not authorized to delete institute lectures' },
+          { status: 403 }
+        );
+      }
+
+      const result = await query(
+        `DELETE FROM institute_lectures WHERE id = ?`,
+        [params.id]
+      );
+      
+      return NextResponse.json(result);
+    }
+
     // Super Admin only operations
     if (session.user.role === 'SUPER_ADMIN') {
       switch (type) {

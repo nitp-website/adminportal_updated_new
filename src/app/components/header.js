@@ -20,6 +20,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import GroupsIcon from '@mui/icons-material/Groups'
 import FolderIcon from '@mui/icons-material/Folder'
 import SchoolIcon from '@mui/icons-material/School'
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver'
 import { ROLES } from '@/lib/roles'
 import { useFacultyData } from '@/context/FacultyDataContext'
 
@@ -134,7 +135,9 @@ const menuItems = {
     { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> },
     { text: 'Role Management', href: '/role-management', icon: <AdminPanelSettingsIcon /> },
     { text: 'Club Management', href: '/club-management', icon: <GroupsIcon /> },
-    { text: 'File Management', href: '/file-management', icon: <FolderIcon /> }
+    { text: 'File Management', href: '/file-management', icon: <FolderIcon /> },
+    { text: 'Guest Lectures', href: '/guest-lectures', icon: <RecordVoiceOverIcon /> },
+    { text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> }
   ],
   [ROLES.CLUB_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
@@ -143,12 +146,16 @@ const menuItems = {
   [ROLES.ACADEMIC_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
     { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> },
-    { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> }
+    { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> },
+    { text: 'Guest Lectures', href: '/guest-lectures', icon: <RecordVoiceOverIcon /> },
+    { text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> }
   ],
   [ROLES.DEPT_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
     { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> },
-    { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> }
+    { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> },
+    { text: 'Guest Lectures', href: '/guest-lectures', icon: <RecordVoiceOverIcon /> },
+    { text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> }
   ],
   [ROLES.FACULTY]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> }

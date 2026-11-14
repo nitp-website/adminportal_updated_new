@@ -47,6 +47,7 @@ export const AddForm = ({ handleClose, modal }) => {
     })
 
     const [new_attach, setNew_attach] = useState([])
+    const [bannerFile, setBannerFile] = useState(null)
    
 
     const handleChange = (e) => {
@@ -68,6 +69,21 @@ export const AddForm = ({ handleClose, modal }) => {
                 }))
             }
 
+            let banner_image = null
+            if (bannerFile) {
+                let fileData = new FormData()
+                fileData.append('file', bannerFile)
+                fileData.append('fileType', 'general')
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: fileData,
+                })
+                if (response.ok) {
+                    const data = await response.json()
+                    banner_image = data.url
+                }
+            }
+
             const finaldata = {
                 id: Date.now(),
                 title: content.title,
@@ -82,7 +98,8 @@ export const AddForm = ({ handleClose, modal }) => {
                 email: session.user.email,
                 author: session.user.name,
                 event_link: null,
-                attachments: attachments
+                attachments: attachments,
+                banner_image: banner_image
             }
 
             const result = await fetch('/api/create', {
@@ -270,6 +287,30 @@ export const AddForm = ({ handleClose, modal }) => {
                     </Box>
 
                     <Divider sx={{ my: 3 }} />
+
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 500 }}>
+                            Event Banner
+                        </Typography>
+                        <Box sx={{ 
+                            p: 2, 
+                            border: '2px dashed #ddd', 
+                            borderRadius: 2,
+                            backgroundColor: '#fafafa'
+                        }}>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setBannerFile(e.target.files[0])}
+                                style={{ marginBottom: '8px', width: '100%' }}
+                            />
+                            {bannerFile && (
+                                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                                    Selected: {bannerFile.name}
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
 
                     <Box>
                         <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 500 }}>

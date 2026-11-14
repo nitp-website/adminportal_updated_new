@@ -182,6 +182,85 @@ export async function POST(request) {
       return NextResponse.json(noticeResult)
     }
 
+    if (type === 'guest_lecture') {
+      const canCreateGuestLecture = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN';
+
+      if (!canCreateGuestLecture) {
+        return NextResponse.json(
+          { message: 'Not authorized to create guest lectures' },
+          { status: 403 }
+        );
+      }
+
+      const guestLectureResult = await query(
+        `INSERT INTO guest_lectures (
+          id, seminar_name, lecturer_name, lecturer_photo, description, 
+          supervisor_email, venue, subject, date, time, abstract, 
+          email, updatedBy, updatedAt, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          params.data.id,
+          params.data.seminar_name,
+          params.data.lecturer_name,
+          params.data.lecturer_photo || null,
+          params.data.description || null,
+          params.data.supervisor_email || null,
+          params.data.venue || null,
+          params.data.subject || null,
+          params.data.date || null,
+          params.data.time || null,
+          params.data.abstract || null,
+          session.user.email,
+          session.user.email,
+          new Date().getTime(),
+          new Date().getTime()
+        ]
+      );
+      
+      return NextResponse.json(guestLectureResult);
+    }
+
+    if (type === 'institute_lecture') {
+      const canCreateInstituteLecture = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN';
+
+      if (!canCreateInstituteLecture) {
+        return NextResponse.json(
+          { message: 'Not authorized to create institute lectures' },
+          { status: 403 }
+        );
+      }
+
+      const instituteLectureResult = await query(
+        `INSERT INTO institute_lectures (
+          id, category, lecturer_name, lecture_title, venue, date, time, 
+          biography, lecturer_photo, email, updatedBy, updatedAt, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          params.data.id,
+          params.data.category || 'Institute Lecture',
+          params.data.lecturer_name,
+          params.data.lecture_title,
+          params.data.venue || null,
+          params.data.date || null,
+          params.data.time || null,
+          params.data.biography || null,
+          params.data.lecturer_photo || null,
+          session.user.email,
+          session.user.email,
+          new Date().getTime(),
+          new Date().getTime()
+        ]
+      );
+      
+      return NextResponse.json(instituteLectureResult);
+    }
+
     // Super Admin only access
     if (session.user.role === 'SUPER_ADMIN') {
       console.log("Inside user management")
@@ -231,7 +310,7 @@ export async function POST(request) {
 
         case 'event':
           const eventResult = await query(
-            `INSERT INTO events(id, title, timestamp, openDate, closeDate, venue, doclink, attachments, event_link, email, eventStartDate, eventEndDate, updatedBy, updatedAt, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO events(id, title, timestamp, openDate, closeDate, venue, doclink, attachments, event_link, email, eventStartDate, eventEndDate, updatedBy, updatedAt, type, banner_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               params.data.id,
               params.data.title,
@@ -247,7 +326,8 @@ export async function POST(request) {
               params.data.eventEndDate,
               session.user.email,
               new Date().getTime(),
-              params.data.type || 'general'
+              params.data.type || 'general',
+              params.data.banner_image || null
               ]
           )
           await invalidateProfileIfNeeded(type, params);

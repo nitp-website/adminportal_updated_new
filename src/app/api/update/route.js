@@ -303,6 +303,98 @@ export async function PUT(request) {
       return NextResponse.json(result)
     }
 
+    if (type === 'guest_lecture') {
+      const canUpdateGuestLecture = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN';
+
+      if (!canUpdateGuestLecture) {
+        return NextResponse.json(
+          { message: 'Not authorized to update guest lectures' },
+          { status: 403 }
+        );
+      }
+
+      const result = await query(
+        `UPDATE guest_lectures SET 
+          seminar_name = ?,
+          lecturer_name = ?,
+          lecturer_photo = ?,
+          description = ?,
+          supervisor_email = ?,
+          venue = ?,
+          subject = ?,
+          date = ?,
+          time = ?,
+          abstract = ?,
+          updatedBy = ?,
+          updatedAt = ?
+        WHERE id = ?`,
+        [
+          params.data.seminar_name,
+          params.data.lecturer_name,
+          params.data.lecturer_photo || null,
+          params.data.description || null,
+          params.data.supervisor_email || null,
+          params.data.venue || null,
+          params.data.subject || null,
+          params.data.date || null,
+          params.data.time || null,
+          params.data.abstract || null,
+          session.user.email,
+          new Date().getTime(),
+          params.data.id
+        ]
+      );
+      
+      return NextResponse.json(result);
+    }
+
+    if (type === 'institute_lecture') {
+      const canUpdateInstituteLecture = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN';
+
+      if (!canUpdateInstituteLecture) {
+        return NextResponse.json(
+          { message: 'Not authorized to update institute lectures' },
+          { status: 403 }
+        );
+      }
+
+      const result = await query(
+        `UPDATE institute_lectures SET 
+          category = ?,
+          lecturer_name = ?,
+          lecture_title = ?,
+          venue = ?,
+          date = ?,
+          time = ?,
+          biography = ?,
+          lecturer_photo = ?,
+          updatedBy = ?,
+          updatedAt = ?
+        WHERE id = ?`,
+        [
+          params.data.category || 'Institute Lecture',
+          params.data.lecturer_name,
+          params.data.lecture_title,
+          params.data.venue || null,
+          params.data.date || null,
+          params.data.time || null,
+          params.data.biography || null,
+          params.data.lecturer_photo || null,
+          session.user.email,
+          new Date().getTime(),
+          params.data.id
+        ]
+      );
+      
+      return NextResponse.json(result);
+    }
+
     // Super Admin only access
     if (session.user.role === "SUPER_ADMIN") {
       switch (type) {
@@ -320,7 +412,8 @@ export async function PUT(request) {
              eventStartDate = ?,
              eventEndDate = ?,
              updatedBy = ?,
-             type = ?
+             type = ?,
+             banner_image = ?
              WHERE id = ?`,
             [
               params.data.title,
@@ -335,6 +428,7 @@ export async function PUT(request) {
               params.data.eventEndDate,
               params.data.updatedBy || session.user.email,
               params.data.type || 'general',
+              params.data.banner_image || null,
               params.data.id
             ]
           )
