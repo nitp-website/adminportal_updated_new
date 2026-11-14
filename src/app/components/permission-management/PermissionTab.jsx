@@ -237,7 +237,7 @@ export default function PermissionTab({ showSnackbar }) {
       </Box>
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        <strong>How it works:</strong> Users granted notice permissions will immediately see the <strong>&quot;Notice&quot;</strong> section in their navigation bar. They can view, create, edit, and delete notices across both their base role sections (e.g. Academic Admin, Dept Admin) and any granted special permissions simultaneously.
+        <strong>How it works:</strong> Users granted delegated permissions will immediately see the corresponding sections (<strong>&quot;Notice&quot;</strong>, <strong>&quot;Events&quot;</strong>, <strong>&quot;Guest Lectures&quot;</strong>, <strong>&quot;Institute Lectures&quot;</strong>) in their navigation bar. They can view, create, edit, and delete items across both their base role sections and any granted delegated permissions simultaneously.
       </Alert>
 
       {/* Search Bar */}
@@ -387,12 +387,12 @@ export default function PermissionTab({ showSnackbar }) {
             }}
           >
             <VpnKeyIcon />
-            {editingItem ? "Edit Faculty Permissions" : "Delegate Notice Permissions"}
+            {editingItem ? "Edit User Permissions" : "Delegate Permissions"}
           </DialogTitle>
 
           <DialogContent sx={{ mt: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Specify the faculty/staff institutional email and select which notice sections they are authorized to manage.
+              Specify the user's institutional email and select which sections (notices, lectures, events) they are authorized to manage.
             </Typography>
 
             <TextField
@@ -413,7 +413,7 @@ export default function PermissionTab({ showSnackbar }) {
 
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Select Allowed Notice Types ({formData.permissions.length} selected):
+                Select Allowed Permissions ({formData.permissions.length} selected):
               </Typography>
               <Box sx={{ display: "flex", gap: 1 }}>
                 <Button

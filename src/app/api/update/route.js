@@ -304,10 +304,17 @@ export async function PUT(request) {
     }
 
     if (type === 'guest_lecture') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
       const canUpdateGuestLecture = 
         session.user.role === 'SUPER_ADMIN' ||
         session.user.role === 'DEPT_ADMIN' ||
-        session.user.role === 'ACADEMIC_ADMIN';
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('guest-lectures');
 
       if (!canUpdateGuestLecture) {
         return NextResponse.json(
@@ -352,10 +359,17 @@ export async function PUT(request) {
     }
 
     if (type === 'institute_lecture') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
       const canUpdateInstituteLecture = 
         session.user.role === 'SUPER_ADMIN' ||
         session.user.role === 'DEPT_ADMIN' ||
-        session.user.role === 'ACADEMIC_ADMIN';
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('institute-lectures');
 
       if (!canUpdateInstituteLecture) {
         return NextResponse.json(
@@ -395,46 +409,66 @@ export async function PUT(request) {
       return NextResponse.json(result);
     }
 
+    if (type === 'event') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const canUpdateEvent = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('events');
+
+      if (!canUpdateEvent) {
+        return NextResponse.json(
+          { message: 'Not authorized to update events' },
+          { status: 403 }
+        );
+      }
+
+      const eventResult = await query(
+        `UPDATE events SET 
+         title = ?,
+         updatedAt = ?,
+         openDate = ?,
+         closeDate = ?,
+         venue = ?,
+         doclink = ?,
+         attachments = ?,
+         event_link = ?,
+         eventStartDate = ?,
+         eventEndDate = ?,
+         updatedBy = ?,
+         type = ?,
+         banner_image = ?
+         WHERE id = ?`,
+        [
+          params.data.title,
+          new Date().getTime(),
+          params.data.openDate,
+          params.data.closeDate,
+          params.data.venue,
+          params.data.doclink,
+          JSON.stringify(params.data.attachments || []),
+          JSON.stringify(params.data.event_link),
+          params.data.eventStartDate,
+          params.data.eventEndDate,
+          params.data.updatedBy || session.user.email,
+          params.data.type || 'general',
+          params.data.banner_image || null,
+          params.data.id
+        ]
+      );
+      await invalidateProfileIfNeeded(type, params);
+      return NextResponse.json(eventResult);
+    }
+
     // Super Admin only access
     if (session.user.role === "SUPER_ADMIN") {
       switch (type) {
-        case "event":
-          const eventResult = await query(
-            `UPDATE events SET 
-             title = ?,
-             updatedAt = ?,
-             openDate = ?,
-             closeDate = ?,
-             venue = ?,
-             doclink = ?,
-             attachments = ?,
-             event_link = ?,
-             eventStartDate = ?,
-             eventEndDate = ?,
-             updatedBy = ?,
-             type = ?,
-             banner_image = ?
-             WHERE id = ?`,
-            [
-              params.data.title,
-              new Date().getTime(),
-              params.data.openDate,
-              params.data.closeDate,
-              params.data.venue,
-              params.data.doclink,
-              JSON.stringify(params.data.attachments || []),
-              JSON.stringify(params.data.event_link),
-              params.data.eventStartDate,
-              params.data.eventEndDate,
-              params.data.updatedBy || session.user.email,
-              params.data.type || 'general',
-              params.data.banner_image || null,
-              params.data.id
-            ]
-          )
-          await invalidateProfileIfNeeded(type, params);
-          return NextResponse.json(eventResult)
-
         case "patents":
           const patentResult = await query(
             `UPDATE patents

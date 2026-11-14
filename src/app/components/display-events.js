@@ -130,9 +130,10 @@ const Event = ({ detail }) => {
                                 <VisibilityIcon fontSize="small" />
                             </IconButton>
                         </Tooltip>
-                        {(session?.user?.role === 'SUPER_ADMIN' || 
+                        {((session?.user?.role === 'SUPER_ADMIN') || 
                           (session?.user?.role === 'ACADEMIC_ADMIN' && detail.category === 'academics') ||
-                          (session?.user?.role === 'DEPT_ADMIN')) && (
+                          (session?.user?.role === 'DEPT_ADMIN') ||
+                          (session?.user?.specialPermissions || []).some((p) => String(p).toLowerCase() === 'events')) && (
                             <>
                                 <Tooltip title="Edit Event">
                                     <IconButton
@@ -230,14 +231,19 @@ const DataDisplay = ({ data }) => {
                 </Typography>
                 
                 <Box>
-                    <Button
-                        variant="contained"
-                        onClick={() => setAddModal(true)}
-                        sx={{ mr: 2 }}
-                        style={{ backgroundColor: '#830001', color: 'white' }}
-                    >
-                        Add New Event
-                    </Button>
+                    {(session?.user?.role === 'SUPER_ADMIN' || 
+                      session?.user?.role === 'ACADEMIC_ADMIN' || 
+                      session?.user?.role === 'DEPT_ADMIN' ||
+                      (session?.user?.specialPermissions || []).some((p) => String(p).toLowerCase() === 'events')) && (
+                        <Button
+                            variant="contained"
+                            onClick={() => setAddModal(true)}
+                            sx={{ mr: 2 }}
+                            style={{ backgroundColor: '#830001', color: 'white' }}
+                        >
+                            Add New Event
+                        </Button>
+                    )}
                     <Filter type="events" setEntries={setFilterQuery} style={{ color: '#830001' }}/>
                 </Box>
             </Box>

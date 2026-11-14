@@ -48,11 +48,15 @@ export default function Page() {
     if (typeof window !== 'undefined' && status==="loading") return <Loading />
 
     if (session) {
+        const hasEventPerm = (session?.user?.specialPermissions || []).some(
+            (p) => String(p).toLowerCase() === 'events'
+        );
         return (
             <>
                 {session.user.role === "SUPER_ADMIN" || 
                   session.user.role === "ACADEMIC_ADMIN" || 
-                  session.user.role === "DEPT_ADMIN" ? (
+                  session.user.role === "DEPT_ADMIN" ||
+                  hasEventPerm ? (
                     <Layout>
                         <Wrap>
                             {isLoading ? (

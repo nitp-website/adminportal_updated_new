@@ -249,7 +249,9 @@ const DataDisplay = ({ data }) => {
         else if (session.user.role === 'TENDER_NOTICE_ADMIN') baseTypes.push('tender');
         else if (session.user.role === 'EXAM_ADMIN') baseTypes.push('exam');
 
-        const special = (session.user.specialPermissions || []).map((p) => String(p).toLowerCase());
+        const special = (session.user.specialPermissions || [])
+            .map((p) => String(p).toLowerCase())
+            .filter((p) => !['events', 'guest-lectures', 'institute-lectures'].includes(p));
         return Array.from(new Set([...baseTypes, ...special]));
     }, [session]);
 
@@ -360,13 +362,17 @@ const DataDisplay = ({ data }) => {
         }
 
         if (session?.user?.role === 'ACADEMIC_ADMIN') {
-            const special = session?.user?.specialPermissions || [];
+            const special = (session?.user?.specialPermissions || [])
+                .map((p) => String(p).toLowerCase())
+                .filter((p) => !['events', 'guest-lectures', 'institute-lectures'].includes(p));
             if (special.length > 0) return 'Academic & Delegated Notices';
             return 'Academic Notices';
         }
 
         if (session?.user?.role === 'DEPT_ADMIN') {
-            const special = session?.user?.specialPermissions || [];
+            const special = (session?.user?.specialPermissions || [])
+                .map((p) => String(p).toLowerCase())
+                .filter((p) => !['events', 'guest-lectures', 'institute-lectures'].includes(p));
             if (special.length > 0) return `${session.user.department} & Delegated Notices`;
             return `${session.user.department} Notices`;
         }

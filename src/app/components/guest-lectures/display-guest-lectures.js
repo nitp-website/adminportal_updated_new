@@ -38,9 +38,13 @@ const GuestLectureRow = ({ detail, onUpdate }) => {
     const [deleteModal, setDeleteModal] = useState(false)
     const { data: session } = useSession()
 
+    const hasPerm = (session?.user?.specialPermissions || []).some(
+        (p) => String(p).toLowerCase() === 'guest-lectures'
+    )
     const canModify = session?.user?.role === 'SUPER_ADMIN' || 
                       session?.user?.role === 'ACADEMIC_ADMIN' || 
-                      session?.user?.role === 'DEPT_ADMIN'
+                      session?.user?.role === 'DEPT_ADMIN' ||
+                      hasPerm
 
     return (
         <>
@@ -131,9 +135,13 @@ export default function DisplayGuestLectures() {
         fetchLectures()
     }, [page, rowsPerPage])
 
+    const hasPerm = (session?.user?.specialPermissions || []).some(
+        (p) => String(p).toLowerCase() === 'guest-lectures'
+    )
     const canAdd = session?.user?.role === 'SUPER_ADMIN' || 
                    session?.user?.role === 'ACADEMIC_ADMIN' || 
-                   session?.user?.role === 'DEPT_ADMIN'
+                   session?.user?.role === 'DEPT_ADMIN' ||
+                   hasPerm
 
     return (
         <Paper sx={{ width: '100%', overflow: 'hidden', p: 2 }}>

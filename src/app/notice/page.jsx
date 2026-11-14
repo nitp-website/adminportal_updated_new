@@ -43,7 +43,12 @@ export default function Page() {
                     console.error("Could not fetch fresh special permissions:", e);
                 }
 
-                if (specialPerms.length > 0) {
+                const NON_NOTICE_PERMISSIONS = ['events', 'guest-lectures', 'institute-lectures'];
+                const noticeSpecialPerms = specialPerms
+                    .map((p) => String(p).toLowerCase())
+                    .filter((p) => !NON_NOTICE_PERMISSIONS.includes(p));
+
+                if (noticeSpecialPerms.length > 0) {
                     setHasDelegatedAccess(true);
                 }
 
@@ -61,7 +66,7 @@ export default function Page() {
                 }
 
                 const combinedTypes = Array.from(
-                    new Set([...baseTypes, ...specialPerms.map((p) => String(p).toLowerCase())])
+                    new Set([...baseTypes, ...noticeSpecialPerms])
                 );
 
                 let body = { from: 0, to: 15, type: "between" };
@@ -118,7 +123,9 @@ export default function Page() {
     }
 
     const hasSpecialPerms =
-        (session?.user?.specialPermissions && session.user.specialPermissions.length > 0) ||
+        ((session?.user?.specialPermissions || []).some(
+            (p) => !['events', 'guest-lectures', 'institute-lectures'].includes(String(p).toLowerCase())
+        )) ||
         hasDelegatedAccess;
 
     // Handle authenticated state
