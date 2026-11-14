@@ -183,10 +183,17 @@ export async function POST(request) {
     }
 
     if (type === 'guest_lecture') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
       const canCreateGuestLecture = 
         session.user.role === 'SUPER_ADMIN' ||
         session.user.role === 'DEPT_ADMIN' ||
-        session.user.role === 'ACADEMIC_ADMIN';
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('guest-lectures');
 
       if (!canCreateGuestLecture) {
         return NextResponse.json(
@@ -224,10 +231,17 @@ export async function POST(request) {
     }
 
     if (type === 'institute_lecture') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
       const canCreateInstituteLecture = 
         session.user.role === 'SUPER_ADMIN' ||
         session.user.role === 'DEPT_ADMIN' ||
-        session.user.role === 'ACADEMIC_ADMIN';
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('institute-lectures');
 
       if (!canCreateInstituteLecture) {
         return NextResponse.json(
@@ -259,6 +273,51 @@ export async function POST(request) {
       );
       
       return NextResponse.json(instituteLectureResult);
+    }
+
+    if (type === 'event') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const canCreateEvent = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('events');
+
+      if (!canCreateEvent) {
+        return NextResponse.json(
+          { message: 'Not authorized to create events' },
+          { status: 403 }
+        );
+      }
+
+      const eventResult = await query(
+        `INSERT INTO events(id, title, timestamp, openDate, closeDate, venue, doclink, attachments, event_link, email, eventStartDate, eventEndDate, updatedBy, updatedAt, type, banner_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          params.data.id,
+          params.data.title,
+          new Date().getTime(),
+          params.data.openDate,
+          params.data.closeDate,
+          params.data.venue,
+          params.data.doclink,
+          JSON.stringify(params.data.attachments || []),
+          JSON.stringify(params.data.event_link),
+          params.data.email,
+          params.data.eventStartDate,
+          params.data.eventEndDate,
+          session.user.email,
+          new Date().getTime(),
+          params.data.type || 'general',
+          params.data.banner_image || null
+        ]
+      );
+      await invalidateProfileIfNeeded(type, params);
+      return NextResponse.json(eventResult);
     }
 
     // Super Admin only access
@@ -307,31 +366,6 @@ export async function POST(request) {
           )
           await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(webteamResult)
-
-        case 'event':
-          const eventResult = await query(
-            `INSERT INTO events(id, title, timestamp, openDate, closeDate, venue, doclink, attachments, event_link, email, eventStartDate, eventEndDate, updatedBy, updatedAt, type, banner_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              params.data.id,
-              params.data.title,
-              new Date().getTime(),
-              params.data.openDate,
-              params.data.closeDate,
-              params.data.venue,
-              params.data.doclink,
-              JSON.stringify(params.data.attachments || []),
-              JSON.stringify(params.data.event_link),
-              params.data.email,
-              params.data.eventStartDate,
-              params.data.eventEndDate,
-              session.user.email,
-              new Date().getTime(),
-              params.data.type || 'general',
-              params.data.banner_image || null
-              ]
-          )
-          await invalidateProfileIfNeeded(type, params);
-          return NextResponse.json(eventResult)
 
         case 'innovation':
           const innovationResult = await query(

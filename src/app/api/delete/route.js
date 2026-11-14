@@ -158,10 +158,17 @@ export async function POST(request) {
     }
 
     if (type === 'guest_lecture') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
       const canDeleteGuestLecture = 
         session.user.role === 'SUPER_ADMIN' ||
         session.user.role === 'DEPT_ADMIN' ||
-        session.user.role === 'ACADEMIC_ADMIN';
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('guest-lectures');
 
       if (!canDeleteGuestLecture) {
         return NextResponse.json(
@@ -179,10 +186,17 @@ export async function POST(request) {
     }
 
     if (type === 'institute_lecture') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
       const canDeleteInstituteLecture = 
         session.user.role === 'SUPER_ADMIN' ||
         session.user.role === 'DEPT_ADMIN' ||
-        session.user.role === 'ACADEMIC_ADMIN';
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('institute-lectures');
 
       if (!canDeleteInstituteLecture) {
         return NextResponse.json(
@@ -197,6 +211,34 @@ export async function POST(request) {
       );
       
       return NextResponse.json(result);
+    }
+
+    if (type === 'event') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const canDeleteEvent = 
+        session.user.role === 'SUPER_ADMIN' ||
+        session.user.role === 'DEPT_ADMIN' ||
+        session.user.role === 'ACADEMIC_ADMIN' ||
+        userSpecialPerms.includes('events');
+
+      if (!canDeleteEvent) {
+        return NextResponse.json(
+          { message: 'Not authorized to delete events' },
+          { status: 403 }
+        );
+      }
+
+      const eventResult = await query(
+        `DELETE FROM events WHERE id = ?`,
+        [params.id]
+      );
+      await invalidateProfileIfNeeded(type, params);
+      return NextResponse.json(eventResult);
     }
 
     // Super Admin only operations
@@ -244,14 +286,6 @@ export async function POST(request) {
           )
           await invalidateProfileIfNeeded(type, params);
           return NextResponse.json(webteamResult)
-
-        case 'event':
-          const eventResult = await query(
-            `DELETE FROM events WHERE id = ?`,
-            [params.id]
-          )
-          await invalidateProfileIfNeeded(type, params);
-          return NextResponse.json(eventResult)
 
         case 'innovation':
           const innovationResult = await query(

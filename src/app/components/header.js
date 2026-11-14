@@ -233,9 +233,27 @@ export default function Header() {
     if (!session?.user?.numericRole) return []
     const items = [...(menuItems[session.user.numericRole] || [])]
 
+    const specialPerms = (session?.user?.specialPermissions || []).map((p) => String(p).toLowerCase())
+
     // If user has special notice permissions and doesn't already have 'Notice' in their menu
-    if (session?.user?.specialPermissions?.length > 0 && !items.some(item => item.href === '/notice')) {
+    const hasNoticePerms = specialPerms.some((p) => !['events', 'guest-lectures', 'institute-lectures'].includes(p))
+    if (hasNoticePerms && !items.some((item) => item.href === '/notice')) {
       items.push({ text: 'Notice', href: '/notice', icon: <NotificationsIcon /> })
+    }
+
+    // If user has 'events' permission and doesn't already have 'Events' in their menu
+    if (specialPerms.includes('events') && !items.some((item) => item.href === '/events')) {
+      items.push({ text: 'Events', href: '/events', icon: <EventIcon /> })
+    }
+
+    // If user has 'guest-lectures' permission and doesn't already have 'Guest Lectures' in their menu
+    if (specialPerms.includes('guest-lectures') && !items.some((item) => item.href === '/guest-lectures')) {
+      items.push({ text: 'Guest Lectures', href: '/guest-lectures', icon: <RecordVoiceOverIcon /> })
+    }
+
+    // If user has 'institute-lectures' permission and doesn't already have 'Institute Lectures' in their menu
+    if (specialPerms.includes('institute-lectures') && !items.some((item) => item.href === '/institute-lectures')) {
+      items.push({ text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> })
     }
 
     return items

@@ -13,5 +13,8 @@ export const PERMISSION_CONFIG = [
   { key: 'annualreport', label: 'Annual Reports', description: 'Institute annual reports and official documentation', color: '#263238' },
   { key: 'newcampus', label: 'New Campus Notices', description: 'Updates and notifications regarding the Bihta new campus', color: '#004d40' },
   { key: 'convocation', label: 'Convocation Notices', description: 'Publish, edit, and delete convocation notices, schedules, and circulars', color: '#b71c1c' },
+  { key: 'events', label: 'Events', description: 'Publish, edit, and delete institute events and event banners', color: '#d32f2f' },
+  { key: 'guest-lectures', label: 'Guest Lectures', description: 'Publish, edit, and delete guest lectures, seminars, and speaker details', color: '#00897b' },
+  { key: 'institute-lectures', label: 'Institute Lectures', description: 'Publish, edit, and delete institute lectures and announcements', color: '#1565c0' },
 ];
 

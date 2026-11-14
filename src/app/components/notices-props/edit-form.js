@@ -150,7 +150,9 @@ export const EditForm = ({ data, handleClose, modal }) => {
             baseKeys.push('exam');
         }
 
-        const special = (session.user.specialPermissions || []).map((p) => String(p).toLowerCase());
+        const special = (session.user.specialPermissions || [])
+            .map((p) => String(p).toLowerCase())
+            .filter((p) => !['events', 'guest-lectures', 'institute-lectures'].includes(p));
         const combinedKeys = Array.from(new Set([...baseKeys, ...special]));
 
         // Always make sure the current notice's type is present in options
