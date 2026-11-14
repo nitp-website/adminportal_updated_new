@@ -93,6 +93,7 @@ export const EditForm = ({ data, handleClose, modal }) => {
     });
 
     const [new_attach, setNew_attach] = useState([]);
+    const [bannerFile, setBannerFile] = useState(null);
 
     const handleChange = (e) => {
         setContent({ ...content, [e.target.name]: e.target.value })
@@ -116,6 +117,21 @@ export const EditForm = ({ data, handleClose, modal }) => {
                 attachments = [...attachments, ...newAttachmentsWithIds]
             }
 
+            let banner_image = data.banner_image || null;
+            if (bannerFile) {
+                let fileData = new FormData();
+                fileData.append('file', bannerFile);
+                fileData.append('fileType', 'general');
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: fileData,
+                });
+                if (response.ok) {
+                    const resData = await response.json();
+                    banner_image = resData.url;
+                }
+            }
+
             const finaldata = {
                 id: content.id,
                 title: content.title,
@@ -131,6 +147,7 @@ export const EditForm = ({ data, handleClose, modal }) => {
                 updatedBy: session.user.email,
                 event_link: null,
                 attachments: attachments,
+                banner_image: banner_image,
                 deleteArray: deleteArray.current
             }
 
@@ -329,6 +346,49 @@ export const EditForm = ({ data, handleClose, modal }) => {
                     </Box>
 
                     <Divider sx={{ my: 3 }} />
+
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 500 }}>
+                            Event Banner
+                        </Typography>
+                        <Box sx={{ 
+                            p: 2, 
+                            border: '2px dashed #ddd', 
+                            borderRadius: 2,
+                            backgroundColor: '#fafafa'
+                        }}>
+                            {data.banner_image && !bannerFile && (
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#666' }}>
+                                        Current Banner:
+                                    </Typography>
+                                    <Button 
+                                        href={data.banner_image} 
+                                        target="_blank" 
+                                        variant="outlined" 
+                                        size="small"
+                                        startIcon={<Link />}
+                                    >
+                                        View Banner
+                                    </Button>
+                                </Box>
+                            )}
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#666' }}>
+                                {data.banner_image ? 'Replace Banner:' : 'Upload Banner:'}
+                            </Typography>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setBannerFile(e.target.files[0])}
+                                style={{ marginBottom: '8px', width: '100%' }}
+                            />
+                            {bannerFile && (
+                                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                                    Selected new banner: {bannerFile.name}
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
 
                     <Box>
                         <Typography variant="h6" sx={{ mb: 2, color: '#333', fontWeight: 500 }}>

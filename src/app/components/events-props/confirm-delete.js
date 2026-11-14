@@ -16,16 +16,25 @@ import { Warning, Delete } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { extractS3KeyFromUrl, deleteS3File } from '@/lib/utils';
 
-export const ConfirmDelete = ({ open, handleClose, event }) => {
+export const ConfirmDelete = ({ open, handleClose, event, id, type, refresh }) => {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const recordId = event?.id ?? id;
+    const deleteType = type || 'event';
+    const isEventDelete = !type || type === 'event';
 
     const handleConfirmDelete = async () => {
         setLoading(true);
         try {
-            console.log(`[Event Delete] Starting deletion process for event ID: ${event.id}`);
+            if (!recordId) {
+                throw new Error('Missing record ID for deletion');
+            }
+
+            console.log(`[Delete] Starting deletion process for ${deleteType} ID: ${recordId}`);
             
-            // Step 1: Extract and delete all attachments from S3
+            // Events may have files in S3. Lectures only require the database deletion.
+            if (isEventDelete && event) {
+              // Step 1: Extract and delete all attachments from S3
             
             // Handle main event link (if it's an S3 file)
             if (event?.event_link) {
@@ -51,6 +60,23 @@ export const ConfirmDelete = ({ open, handleClose, event }) => {
                 } catch (error) {
                     console.error('[Event Delete] Error deleting event link:', error);
                     // Continue with deletion even if there's an error
+                }
+            }
+            
+            // Handle banner image
+            if (event?.banner_image) {
+                try {
+                    if (typeof event.banner_image === 'string' && event.banner_image.includes('.amazonaws.com')) {
+                        const keyToDelete = extractS3KeyFromUrl(event.banner_image);
+                        console.log(`[Event Delete] Found banner image S3 key: ${keyToDelete}`);
+                        
+                        if (keyToDelete) {
+                            console.log(`[Event Delete] Deleting banner image: ${keyToDelete}`);
+                            await deleteS3File(keyToDelete);
+                        }
+                    }
+                } catch (error) {
+                    console.error('[Event Delete] Error deleting banner image:', error);
                 }
             }
             
@@ -94,17 +120,18 @@ export const ConfirmDelete = ({ open, handleClose, event }) => {
                     // Continue with deletion even if attachment deletion fails
                 }
             }
+            }
             
-            // Step 2: Delete the event record from the database
-            console.log(`[Event Delete] Deleting event record from database, ID: ${event.id}`);
+            // Delete the record from the database.
+            console.log(`[Delete] Deleting ${deleteType} record from database, ID: ${recordId}`);
             const response = await fetch('/api/delete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    id: event.id,
-                    type: 'event'
+                    id: recordId,
+                    type: deleteType
                 }),
             });
 
@@ -113,11 +140,14 @@ export const ConfirmDelete = ({ open, handleClose, event }) => {
             }
 
             const data = await response.json();
-            console.log('[Event Delete] Database deletion response:', data);
+            console.log('[Delete] Database deletion response:', data);
             
             handleClose();
-            // Force a full page reload to ensure the deleted event is removed from the UI
-            window.location.reload();
+            if (refresh) {
+                refresh();
+            } else {
+                window.location.reload();
+            }
         } catch (error) {
             console.error('[Event Delete] Error deleting event:', error);
         } finally {
@@ -177,27 +207,36 @@ export const ConfirmDelete = ({ open, handleClose, event }) => {
                             fontStyle: 'italic'
                         }}
                     >
-                        "{event?.title}"
+                        "{event?.title || 'Selected lecture'}"
                     </Typography>
                 </Box>
 
-                {event?.attachments && event.attachments.length > 0 && (
+                {isEventDelete && (event?.attachments?.length > 0 || event?.banner_image) && (
                     <Box sx={{ mb: 2 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                             The following will also be permanently deleted:
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            <Chip 
-                                label={`${event.attachments.length} attachment(s)`}
-                                color="warning"
-                                size="small"
-                            />
+                            {event?.attachments && event.attachments.length > 0 && (
+                                <Chip 
+                                    label={`${event.attachments.length} attachment(s)`}
+                                    color="warning"
+                                    size="small"
+                                />
+                            )}
+                            {event?.banner_image && (
+                                <Chip 
+                                    label="Event Banner"
+                                    color="warning"
+                                    size="small"
+                                />
+                            )}
                         </Box>
                     </Box>
                 )}
 
                 <DialogContentText id="alert-dialog-description">
-                    Are you sure you want to delete this event? All associated files will also be permanently removed.
+                    Are you sure you want to delete this {isEventDelete ? 'event' : 'lecture'}? {isEventDelete && 'All associated files will also be permanently removed.'}
                 </DialogContentText>
             </DialogContent>
             <DialogActions sx={{ p: 3, backgroundColor: '#f8f9fa', position: 'sticky', bottom: 0, zIndex: 1300 }}>
@@ -228,7 +267,7 @@ export const ConfirmDelete = ({ open, handleClose, event }) => {
                         }
                     }}
                 >
-                    {loading ? 'Deleting...' : 'Delete Event'}
+                    {loading ? 'Deleting...' : `Delete ${isEventDelete ? 'Event' : 'Lecture'}`}
                 </Button>
             </DialogActions>
         </Dialog>
