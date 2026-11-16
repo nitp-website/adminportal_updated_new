@@ -22,30 +22,16 @@ export async function POST(request) {
   try {
     const { type, ...params } = await request.json()
 
-    // Notice deletion (Super Admin, Academic Admin, Dept Admin)
-    if (type === 'notice') {
-      // First, get the notice details to check authorization and delete associated files
-      const notice = await query(
-        `SELECT attachments, email, notice_type, department FROM notices WHERE id = ?`,
-        [params.id]
-      );
+    // Notice deletion (single or batch)
+    if (type === 'notice' || type === 'notices') {
+      const noticeIds = Array.isArray(params.ids) ? params.ids : (params.id ? [params.id] : []);
 
-      if (!notice || notice.length === 0) {
+      if (noticeIds.length === 0) {
         return NextResponse.json(
-          { message: 'Notice not found' },
-          { status: 404 }
-        )
+          { message: 'Notice ID(s) not provided' },
+          { status: 400 }
+        );
       }
-
-      const noticeData = notice[0];
-      
-      console.log('DEBUG: Notice deletion authorization check')
-      console.log('User role:', session.user.role)
-      console.log('User department:', session.user.department)
-      console.log('Notice department:', noticeData.department)
-      console.log('Notice type:', noticeData.notice_type)
-      console.log('User email:', session.user.email)
-      console.log('Notice email:', noticeData.email)
 
       const dbPerms = await getFacultySpecialPermissions(session.user.email);
       const userSpecialPerms = Array.from(new Set([
@@ -53,108 +39,125 @@ export async function POST(request) {
         ...dbPerms
       ])).map(p => String(p).toLowerCase());
 
-      const nType = noticeData.notice_type?.toLowerCase();
-
-      const canDeleteNotice = 
-        session.user.role === 'SUPER_ADMIN' ||
-        (session.user.role === 'ACADEMIC_ADMIN' && nType === 'academics') ||
-        (session.user.role === 'DEPT_ADMIN' && 
-         nType === 'department' && 
-         noticeData.department === session.user.department) ||
-        (session.user.role === 'TENDER_NOTICE_ADMIN' && nType === 'tender') ||
-        (session.user.role === 'EXAM_ADMIN' && nType === 'exam') ||
-        userSpecialPerms.includes(nType);
-      
-      console.log('Can delete notice:', canDeleteNotice)
-      
-      if (!canDeleteNotice) {
-        return NextResponse.json(
-          { message: 'Not authorized to delete notices' },
-          { status: 403 }
-        )
-      }
-
-      // Delete managed S3 files using exact s3_key
-      try {
-        const managedFiles = await query(
-          `SELECT id, s3_key FROM notice_attachments WHERE notice_id = ?`,
-          [params.id]
+      const deleteNoticeById = async (noticeId) => {
+        const notice = await query(
+          `SELECT attachments, email, notice_type, department FROM notices WHERE id = ?`,
+          [noticeId]
         );
-        
-        if (managedFiles && managedFiles.length > 0) {
-          console.log(`[Notice Deletion] Notice ID ${params.id} has ${managedFiles.length} managed files.`);
-          const managedDeletionPromises = managedFiles.map(async (file) => {
-            try {
-              if (file.s3_key) {
-                await deleteS3File(file.s3_key);
-                console.log(`[Notice Deletion] Successfully deleted managed key: ${file.s3_key}`);
-              }
-            } catch (deleteError) {
-              console.error(`[Notice Deletion] Failed to delete managed key ${file.s3_key}:`, deleteError.message);
-            }
-          });
-          await Promise.all(managedDeletionPromises);
-          
-          // Delete records from notice_attachments
-          await query(`DELETE FROM notice_attachments WHERE notice_id = ?`, [params.id]);
+
+        if (!notice || notice.length === 0) {
+          return { id: noticeId, status: 'not_found' };
         }
-      } catch (err) {
-        console.error('[Notice Deletion] Error handling managed files:', err);
-      }
 
-      // Delete S3 files if attachments exist
-      if (noticeData.attachments) {
+        const noticeData = notice[0];
+        const nType = noticeData.notice_type?.toLowerCase();
+
+        const canDeleteNotice = 
+          session.user.role === 'SUPER_ADMIN' ||
+          (session.user.role === 'ACADEMIC_ADMIN' && nType === 'academics') ||
+          (session.user.role === 'DEPT_ADMIN' && 
+           nType === 'department' && 
+           noticeData.department === session.user.department) ||
+          (session.user.role === 'TENDER_NOTICE_ADMIN' && nType === 'tender') ||
+          (session.user.role === 'EXAM_ADMIN' && nType === 'exam') ||
+          userSpecialPerms.includes(nType);
+
+        if (!canDeleteNotice) {
+          return { id: noticeId, status: 'unauthorized' };
+        }
+
+        // Delete managed S3 files using exact s3_key
         try {
-          const attachments = JSON.parse(noticeData.attachments);
-          console.log(`[Notice Deletion] Notice ID ${params.id} has attachments:`, attachments);
+          const managedFiles = await query(
+            `SELECT id, s3_key FROM notice_attachments WHERE notice_id = ?`,
+            [noticeId]
+          );
           
-          if (Array.isArray(attachments)) {
-            // Use Promise.all to attempt all deletions concurrently
-            const deletionPromises = attachments.map(async (attachment) => {
+          if (managedFiles && managedFiles.length > 0) {
+            console.log(`[Notice Deletion] Notice ID ${noticeId} has ${managedFiles.length} managed files.`);
+            const managedDeletionPromises = managedFiles.map(async (file) => {
               try {
-                let keyToDelete = null;
-
-                // Case 1: S3 file with explicit key
-                if (attachment.key) {
-                  keyToDelete = attachment.key;
-                  console.log(`[Notice Deletion] Found explicit key: ${keyToDelete}`);
-                } 
-                // Case 2: S3 file with key embedded in URL
-                else if (attachment.url && typeof attachment.url === 'string' && attachment.url.includes('.amazonaws.com')) {
-                  keyToDelete = extractS3KeyFromUrl(attachment.url);
-                  console.log(`[Notice Deletion] Extracted key from URL: ${keyToDelete}`);
-                }
-
-                if (keyToDelete) {
-                  await deleteS3File(keyToDelete);
-                  console.log(`[Notice Deletion] Successfully deleted key: ${keyToDelete}`);
-                } else {
-                  console.log(`[Notice Deletion] No deletable key found for attachment:`, attachment);
+                if (file.s3_key) {
+                  await deleteS3File(file.s3_key);
+                  console.log(`[Notice Deletion] Successfully deleted managed key: ${file.s3_key}`);
                 }
               } catch (deleteError) {
-                // Log the error for the specific file but don't stop the others
-                console.error(`[Notice Deletion] Failed to delete attachment`, { attachment, error: deleteError.message });
+                console.error(`[Notice Deletion] Failed to delete managed key ${file.s3_key}:`, deleteError.message);
               }
             });
-            
-            // Wait for all deletion attempts to complete
-            await Promise.all(deletionPromises);
+            await Promise.all(managedDeletionPromises);
+            await query(`DELETE FROM notice_attachments WHERE notice_id = ?`, [noticeId]);
           }
-        } catch (error) {
-          // This will catch errors from JSON.parse or other initial setup
-          console.error('[Notice Deletion] Error processing attachments for notice ID ' + params.id, error);
+        } catch (err) {
+          console.error('[Notice Deletion] Error handling managed files:', err);
         }
+
+        // Delete S3 files if attachments exist
+        if (noticeData.attachments) {
+          try {
+            const attachments = typeof noticeData.attachments === 'string'
+              ? JSON.parse(noticeData.attachments)
+              : noticeData.attachments;
+            
+            if (Array.isArray(attachments)) {
+              const deletionPromises = attachments.map(async (attachment) => {
+                try {
+                  let keyToDelete = null;
+                  if (attachment.key) {
+                    keyToDelete = attachment.key;
+                  } else if (attachment.url && typeof attachment.url === 'string' && attachment.url.includes('.amazonaws.com')) {
+                    keyToDelete = extractS3KeyFromUrl(attachment.url);
+                  }
+
+                  if (keyToDelete) {
+                    await deleteS3File(keyToDelete);
+                    console.log(`[Notice Deletion] Successfully deleted key: ${keyToDelete}`);
+                  }
+                } catch (deleteError) {
+                  console.error(`[Notice Deletion] Failed to delete attachment`, { attachment, error: deleteError.message });
+                }
+              });
+              await Promise.all(deletionPromises);
+            }
+          } catch (error) {
+            console.error('[Notice Deletion] Error processing attachments for notice ID ' + noticeId, error);
+          }
+        }
+
+        // Now delete the notice from database
+        const result = await query(
+          `DELETE FROM notices WHERE id = ?`,
+          [noticeId]
+        );
+
+        if (noticeData.email) {
+          await invalidateProfileIfNeeded(type, { ...params, id: noticeId, email: noticeData.email });
+        }
+
+        return { id: noticeId, status: 'deleted', result };
+      };
+
+      const deletionResults = await Promise.all(noticeIds.map(id => deleteNoticeById(id)));
+
+      // If called with a single ID (legacy format), maintain exact previous response behavior
+      if (!Array.isArray(params.ids)) {
+        const singleResult = deletionResults[0];
+        if (singleResult.status === 'not_found') {
+          return NextResponse.json({ message: 'Notice not found' }, { status: 404 });
+        }
+        if (singleResult.status === 'unauthorized') {
+          return NextResponse.json({ message: 'Not authorized to delete notices' }, { status: 403 });
+        }
+        return NextResponse.json(singleResult.result);
       }
 
-      // Now delete the notice from database
-      const result = await query(
-        `DELETE FROM notices WHERE id = ?`,
-        [params.id]
-      )
-      if (params.email) {
-      await invalidateProfileIfNeeded(type, params);
-    }
-      return NextResponse.json(result)
+      const deletedCount = deletionResults.filter(r => r.status === 'deleted').length;
+      return NextResponse.json({
+        success: true,
+        message: `Successfully deleted ${deletedCount} of ${noticeIds.length} notice(s)`,
+        deletedCount,
+        results: deletionResults
+      });
     }
 
     if (type === 'guest_lecture') {

@@ -12,7 +12,14 @@ import {
     Paper,
     Tooltip,
     Chip,
-    TableSortLabel
+    TableSortLabel,
+    Checkbox,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    CircularProgress,
+    Alert
 } from '@mui/material'
 import Button from '@mui/material/Button'
 import {
@@ -20,7 +27,8 @@ import {
     Visibility as VisibilityIcon,
     Delete as DeleteIcon,
     Star as StarIcon,
-    AttachFile as AttachFileIcon
+    AttachFile as AttachFileIcon,
+    Warning as WarningIcon
 } from '@mui/icons-material'
 import React, { useState, useEffect, useMemo } from 'react'
 import { AddForm } from './notices-props/add-form'
@@ -55,12 +63,24 @@ const sortNotices = (noticesList, sortKey, sortDirection) => {
             const timeA = parseTime(a.openDate);
             const timeB = parseTime(b.openDate);
             cmp = timeA - timeB;
+        } else if (sortKey === 'closeDate') {
+            const timeA = parseTime(a.closeDate);
+            const timeB = parseTime(b.closeDate);
+            if (!timeA && timeB) cmp = 1;
+            else if (timeA && !timeB) cmp = -1;
+            else cmp = timeA - timeB;
         } else if (sortKey === 'department') {
             const deptA = (a.department || '').toString().trim().toLowerCase();
             const deptB = (b.department || '').toString().trim().toLowerCase();
             if (!deptA && deptB) cmp = 1;
             else if (deptA && !deptB) cmp = -1;
             else cmp = deptA.localeCompare(deptB);
+        } else if (sortKey === 'notice_type' || sortKey === 'type') {
+            const typeA = (a.notice_type || '').toString().trim().toLowerCase();
+            const typeB = (b.notice_type || '').toString().trim().toLowerCase();
+            if (!typeA && typeB) cmp = 1;
+            else if (typeA && !typeB) cmp = -1;
+            else cmp = typeA.localeCompare(typeB);
         }
 
         if (cmp !== 0) {
@@ -139,19 +159,43 @@ const canUserManageNotice = (notice, session) => {
     return false;
 };
 
-const Notice = ({ detail }) => {
+const Notice = ({ detail, isSelected, onToggleSelect, canManage }) => {
     const [editModal, setEditModal] = useState(false)
     const [viewModal, setViewModal] = useState(false)
     const [deleteModal, setDeleteModal] = useState(false)
-    const { data: session } = useSession()
     const updatedAt = formatDate(detail.updatedAt)
     const openDate = formatDate(detail.openDate)
-
-    const canManage = canUserManageNotice(detail, session);
+    const closeDate = formatDate(detail.closeDate)
 
     return (
         <>
-            <TableRow sx={{ '&:hover': { backgroundColor: '#f5f5f5' } }}>
+            <TableRow 
+                sx={{ 
+                    '&:hover': { backgroundColor: isSelected ? 'rgba(131, 0, 1, 0.08)' : '#f5f5f5' },
+                    backgroundColor: isSelected ? 'rgba(131, 0, 1, 0.04)' : 'inherit',
+                    transition: 'background-color 0.15s ease-in-out'
+                }}
+            >
+                <TableCell padding="checkbox">
+                    {canManage ? (
+                        <Checkbox
+                            checked={Boolean(isSelected)}
+                            onChange={() => onToggleSelect(detail.id)}
+                            sx={{
+                                color: '#830001',
+                                '&.Mui-checked': {
+                                    color: '#830001',
+                                },
+                            }}
+                        />
+                    ) : (
+                        <Tooltip title="You do not have permission to delete this notice">
+                            <span>
+                                <Checkbox disabled sx={{ opacity: 0.3 }} />
+                            </span>
+                        </Tooltip>
+                    )}
+                </TableCell>
                 <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {Boolean(detail.important) && (
@@ -177,7 +221,7 @@ const Notice = ({ detail }) => {
                             variant="subtitle2" 
                             sx={{ 
                                 fontWeight: 500,
-                                maxWidth: '300px',
+                                maxWidth: '280px',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap'
@@ -195,6 +239,11 @@ const Notice = ({ detail }) => {
                 <TableCell>
                     <Typography variant="body2" color="text.secondary">
                         {openDate}
+                    </Typography>
+                </TableCell>
+                <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                        {closeDate}
                     </Typography>
                 </TableCell>
                 <TableCell>
@@ -292,6 +341,10 @@ const DataDisplay = ({ data }) => {
         key: 'updatedAt',
         direction: 'desc'
     })
+    const [selectedIds, setSelectedIds] = useState([])
+    const [batchDeleteModal, setBatchDeleteModal] = useState(false)
+    const [isBatchDeleting, setIsBatchDeleting] = useState(false)
+    const [batchDeleteError, setBatchDeleteError] = useState(null)
 
     const handleRequestSort = (property) => {
         if (sortConfig.key === property) {
@@ -300,9 +353,10 @@ const DataDisplay = ({ data }) => {
                 direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
             })
         } else {
+            const defaultAsc = ['department', 'notice_type'].includes(property)
             setSortConfig({
                 key: property,
-                direction: property === 'department' ? 'asc' : 'desc'
+                direction: defaultAsc ? 'asc' : 'desc'
             })
         }
     }
@@ -323,6 +377,64 @@ const DataDisplay = ({ data }) => {
             .filter((p) => !['events', 'guest-lectures', 'institute-lectures'].includes(p));
         return Array.from(new Set([...baseTypes, ...special]));
     }, [session]);
+
+    const manageableNotices = useMemo(() => {
+        return (details || []).filter(notice => canUserManageNotice(notice, session));
+    }, [details, session]);
+
+    const manageableIds = useMemo(() => {
+        return manageableNotices.map(notice => notice.id);
+    }, [manageableNotices]);
+
+    const isAllSelected = manageableIds.length > 0 && manageableIds.every(id => selectedIds.includes(id));
+    const isIndeterminate = selectedIds.length > 0 && !isAllSelected;
+
+    const handleSelectAll = (event) => {
+        if (event.target.checked) {
+            setSelectedIds(manageableIds);
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const handleToggleSelect = (id) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleConfirmBatchDelete = async () => {
+        if (selectedIds.length === 0) return;
+        setIsBatchDeleting(true);
+        setBatchDeleteError(null);
+
+        try {
+            const response = await fetch('/api/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'notice',
+                    ids: selectedIds
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || 'Failed to delete selected notices');
+            }
+
+            setBatchDeleteModal(false);
+            setSelectedIds([]);
+            window.location.reload();
+        } catch (err) {
+            console.error('[Batch Delete] Error:', err);
+            setBatchDeleteError(err.message || 'An error occurred while deleting notices');
+        } finally {
+            setIsBatchDeleting(false);
+        }
+    };
 
     useEffect(() => {
         if (data) {
@@ -449,6 +561,22 @@ const DataDisplay = ({ data }) => {
         return 'Authorized Notices';
     };
 
+    const sortLabelSx = (key) => ({
+        fontWeight: 600,
+        color: sortConfig.key === key ? '#830001 !important' : '#333',
+        '& .MuiTableSortLabel-icon': {
+            opacity: sortConfig.key === key ? 1 : 0.45,
+            color: sortConfig.key === key ? '#830001 !important' : '#555 !important'
+        },
+        '&:hover': {
+            color: '#830001',
+            '& .MuiTableSortLabel-icon': {
+                opacity: 0.85,
+                color: '#830001 !important'
+            }
+        }
+    });
+
     return (
         <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -470,31 +598,97 @@ const DataDisplay = ({ data }) => {
                 </Box>
             </Box>
 
+            {/* Batch Actions Toolbar */}
+            {selectedIds.length > 0 && (
+                <Box
+                    sx={{
+                        mb: 2,
+                        p: 1.5,
+                        bgcolor: 'rgba(131, 0, 1, 0.06)',
+                        borderRadius: 2,
+                        border: '1px solid rgba(131, 0, 1, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 2
+                    }}
+                >
+                    <Box display="flex" alignItems="center" gap={1.5}>
+                        <Chip
+                            label={`${selectedIds.length} Selected`}
+                            size="small"
+                            sx={{
+                                bgcolor: '#830001',
+                                color: '#fff',
+                                fontWeight: 600
+                            }}
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                            {selectedIds.length === 1 ? '1 notice selected' : `${selectedIds.length} notices selected for bulk action`}
+                        </Typography>
+                    </Box>
+                    <Box display="flex" alignItems="center" gap={1}>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setSelectedIds([])}
+                            sx={{
+                                color: '#555',
+                                borderColor: '#ccc',
+                                textTransform: 'none',
+                                '&:hover': { borderColor: '#888', bgcolor: '#f5f5f5' }
+                            }}
+                        >
+                            Clear Selection
+                        </Button>
+                        <Button
+                            size="small"
+                            variant="contained"
+                            color="error"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => setBatchDeleteModal(true)}
+                            sx={{
+                                bgcolor: '#d32f2f',
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                '&:hover': { bgcolor: '#b71c1c' }
+                            }}
+                        >
+                            Delete Selected ({selectedIds.length})
+                        </Button>
+                    </Box>
+                </Box>
+            )}
+
             <TableContainer component={Paper} sx={{ boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)', borderRadius: 2 }}>
                 <Table>
                     <TableHead>
                         <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
+                            <TableCell padding="checkbox">
+                                <Checkbox
+                                    indeterminate={isIndeterminate}
+                                    checked={isAllSelected}
+                                    onChange={handleSelectAll}
+                                    disabled={manageableIds.length === 0}
+                                    sx={{
+                                        color: '#830001',
+                                        '&.Mui-checked': {
+                                            color: '#830001',
+                                        },
+                                        '&.MuiCheckbox-indeterminate': {
+                                            color: '#830001',
+                                        },
+                                    }}
+                                />
+                            </TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>Notice Title</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>
                                 <TableSortLabel
                                     active={sortConfig.key === 'updatedAt'}
                                     direction={sortConfig.key === 'updatedAt' ? sortConfig.direction : 'desc'}
                                     onClick={() => handleRequestSort('updatedAt')}
-                                    sx={{
-                                        fontWeight: 600,
-                                        color: sortConfig.key === 'updatedAt' ? '#830001 !important' : '#333',
-                                        '& .MuiTableSortLabel-icon': {
-                                            opacity: sortConfig.key === 'updatedAt' ? 1 : 0.45,
-                                            color: sortConfig.key === 'updatedAt' ? '#830001 !important' : '#555 !important'
-                                        },
-                                        '&:hover': {
-                                            color: '#830001',
-                                            '& .MuiTableSortLabel-icon': {
-                                                opacity: 0.85,
-                                                color: '#830001 !important'
-                                            }
-                                        }
-                                    }}
+                                    sx={sortLabelSx('updatedAt')}
                                 >
                                     Updated Date
                                 </TableSortLabel>
@@ -504,23 +698,19 @@ const DataDisplay = ({ data }) => {
                                     active={sortConfig.key === 'openDate'}
                                     direction={sortConfig.key === 'openDate' ? sortConfig.direction : 'desc'}
                                     onClick={() => handleRequestSort('openDate')}
-                                    sx={{
-                                        fontWeight: 600,
-                                        color: sortConfig.key === 'openDate' ? '#830001 !important' : '#333',
-                                        '& .MuiTableSortLabel-icon': {
-                                            opacity: sortConfig.key === 'openDate' ? 1 : 0.45,
-                                            color: sortConfig.key === 'openDate' ? '#830001 !important' : '#555 !important'
-                                        },
-                                        '&:hover': {
-                                            color: '#830001',
-                                            '& .MuiTableSortLabel-icon': {
-                                                opacity: 0.85,
-                                                color: '#830001 !important'
-                                            }
-                                        }
-                                    }}
+                                    sx={sortLabelSx('openDate')}
                                 >
                                     Open Date
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>
+                                <TableSortLabel
+                                    active={sortConfig.key === 'closeDate'}
+                                    direction={sortConfig.key === 'closeDate' ? sortConfig.direction : 'desc'}
+                                    onClick={() => handleRequestSort('closeDate')}
+                                    sx={sortLabelSx('closeDate')}
+                                >
+                                    Closing Date
                                 </TableSortLabel>
                             </TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>
@@ -528,26 +718,21 @@ const DataDisplay = ({ data }) => {
                                     active={sortConfig.key === 'department'}
                                     direction={sortConfig.key === 'department' ? sortConfig.direction : 'asc'}
                                     onClick={() => handleRequestSort('department')}
-                                    sx={{
-                                        fontWeight: 600,
-                                        color: sortConfig.key === 'department' ? '#830001 !important' : '#333',
-                                        '& .MuiTableSortLabel-icon': {
-                                            opacity: sortConfig.key === 'department' ? 1 : 0.45,
-                                            color: sortConfig.key === 'department' ? '#830001 !important' : '#555 !important'
-                                        },
-                                        '&:hover': {
-                                            color: '#830001',
-                                            '& .MuiTableSortLabel-icon': {
-                                                opacity: 0.85,
-                                                color: '#830001 !important'
-                                            }
-                                        }
-                                    }}
+                                    sx={sortLabelSx('department')}
                                 >
                                     Department
                                 </TableSortLabel>
                             </TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>Type</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>
+                                <TableSortLabel
+                                    active={sortConfig.key === 'notice_type'}
+                                    direction={sortConfig.key === 'notice_type' ? sortConfig.direction : 'asc'}
+                                    onClick={() => handleRequestSort('notice_type')}
+                                    sx={sortLabelSx('notice_type')}
+                                >
+                                    Type
+                                </TableSortLabel>
+                            </TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>Attachments</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>Actions</TableCell>
                         </TableRow>
@@ -555,11 +740,17 @@ const DataDisplay = ({ data }) => {
                     <TableBody>
                         {details?.length > 0 ? (
                             details.map((notice, index) => (
-                                <Notice key={notice.id || index} detail={notice} />
+                                <Notice 
+                                    key={notice.id || index} 
+                                    detail={notice} 
+                                    isSelected={selectedIds.includes(notice.id)}
+                                    onToggleSelect={handleToggleSelect}
+                                    canManage={canUserManageNotice(notice, session)}
+                                />
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                                     <Typography variant="body1" color="text.secondary">
                                         No notices found
                                     </Typography>
@@ -590,6 +781,75 @@ const DataDisplay = ({ data }) => {
                 modal={addModal}
                 handleClose={() => setAddModal(false)}
             />
+
+            {/* Batch Delete Confirmation Dialog */}
+            <Dialog
+                open={batchDeleteModal}
+                onClose={() => !isBatchDeleting && setBatchDeleteModal(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#d32f2f', fontWeight: 600 }}>
+                    <WarningIcon color="error" />
+                    Confirm Delete Multiple Notices
+                </DialogTitle>
+                <DialogContent>
+                    {batchDeleteError && (
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                            {batchDeleteError}
+                        </Alert>
+                    )}
+                    <Typography variant="body1" sx={{ mb: 1.5 }}>
+                        Are you sure you want to permanently delete <strong>{selectedIds.length}</strong> selected notice{selectedIds.length > 1 ? 's' : ''}?
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        This action cannot be undone. All associated attachments and files will also be permanently deleted from S3 storage.
+                    </Typography>
+                    
+                    <Box
+                        sx={{
+                            maxHeight: '180px',
+                            overflowY: 'auto',
+                            bgcolor: '#f8f9fa',
+                            p: 1.5,
+                            borderRadius: 1,
+                            border: '1px solid #e0e0e0'
+                        }}
+                    >
+                        {details
+                            .filter(n => selectedIds.includes(n.id))
+                            .map((n, idx) => (
+                                <Box key={n.id || idx} sx={{ py: 0.75, borderBottom: idx < selectedIds.length - 1 ? '1px dashed #ddd' : 'none' }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#333' }}>
+                                        • {n.title}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Type: {n.notice_type || 'General'} | Updated: {formatDate(n.updatedAt)}
+                                    </Typography>
+                                </Box>
+                            ))}
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                    <Button
+                        onClick={() => setBatchDeleteModal(false)}
+                        disabled={isBatchDeleting}
+                        sx={{ color: '#555' }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleConfirmBatchDelete}
+                        disabled={isBatchDeleting}
+                        startIcon={isBatchDeleting ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+                        sx={{ bgcolor: '#d32f2f', '&:hover': { bgcolor: '#b71c1c' } }}
+                    >
+                        {isBatchDeleting ? 'Deleting...' : `Delete (${selectedIds.length}) Notices`}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     )
 }
