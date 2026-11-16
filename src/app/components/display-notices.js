@@ -11,7 +11,8 @@ import {
     TableRow,
     Paper,
     Tooltip,
-    Chip
+    Chip,
+    TableSortLabel
 } from '@mui/material'
 import Button from '@mui/material/Button'
 import {
@@ -29,6 +30,51 @@ import Filter from './common-props/filter'
 import TablePaginationActions from './common-props/TablePaginationActions'
 import ViewDetailsModal from './view-details-modal'
 import { ConfirmDelete } from './notices-props/confirm-delete'
+
+// Helper function to sort notices deterministically
+const sortNotices = (noticesList, sortKey, sortDirection) => {
+    if (!Array.isArray(noticesList)) return [];
+    const sorted = [...noticesList];
+
+    const parseTime = (val) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed) && String(parsed).length >= 10) return parsed;
+        const d = new Date(val).getTime();
+        return isNaN(d) ? 0 : d;
+    };
+
+    sorted.sort((a, b) => {
+        let cmp = 0;
+        if (sortKey === 'updatedAt') {
+            const timeA = parseTime(a.updatedAt || a.timestamp);
+            const timeB = parseTime(b.updatedAt || b.timestamp);
+            cmp = timeA - timeB;
+        } else if (sortKey === 'openDate') {
+            const timeA = parseTime(a.openDate);
+            const timeB = parseTime(b.openDate);
+            cmp = timeA - timeB;
+        } else if (sortKey === 'department') {
+            const deptA = (a.department || '').toString().trim().toLowerCase();
+            const deptB = (b.department || '').toString().trim().toLowerCase();
+            if (!deptA && deptB) cmp = 1;
+            else if (deptA && !deptB) cmp = -1;
+            else cmp = deptA.localeCompare(deptB);
+        }
+
+        if (cmp !== 0) {
+            return sortDirection === 'asc' ? cmp : -cmp;
+        }
+
+        // Secondary stable sort: latest updatedAt first
+        const secA = parseTime(a.updatedAt || a.timestamp);
+        const secB = parseTime(b.updatedAt || b.timestamp);
+        return secB - secA;
+    });
+
+    return sorted;
+};
 
 // Helper function to format dates safely
 const formatDate = (dateValue) => {
@@ -152,6 +198,11 @@ const Notice = ({ detail }) => {
                     </Typography>
                 </TableCell>
                 <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                        {detail.department || '-'}
+                    </Typography>
+                </TableCell>
+                <TableCell>
                     <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
                         {detail.notice_type || 'General'}
                     </Typography>
@@ -237,6 +288,24 @@ const DataDisplay = ({ data }) => {
     const [rowsPerPage, setRowsPerPage] = useState(15)
     const [filterQuery, setFilterQuery] = useState(null)
     const [addModal, setAddModal] = useState(false)
+    const [sortConfig, setSortConfig] = useState({
+        key: 'updatedAt',
+        direction: 'desc'
+    })
+
+    const handleRequestSort = (property) => {
+        if (sortConfig.key === property) {
+            setSortConfig({
+                key: property,
+                direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
+            })
+        } else {
+            setSortConfig({
+                key: property,
+                direction: property === 'department' ? 'asc' : 'desc'
+            })
+        }
+    }
 
     // Calculate all authorized notice types for current user
     const allowedNoticeTypes = useMemo(() => {
@@ -258,9 +327,9 @@ const DataDisplay = ({ data }) => {
     useEffect(() => {
         if (data) {
             setInitialData(data);
-            setDetails(data);
+            setDetails(sortNotices(data, sortConfig.key, sortConfig.direction));
         }
-    }, [data]);
+    }, [data, sortConfig]);
 
     useEffect(() => {
         if (!filterQuery) {
@@ -269,6 +338,8 @@ const DataDisplay = ({ data }) => {
                 to: (page + 1) * rowsPerPage,
                 type: 'between',
                 notice_sub_type: filterQuery?.notice_sub_type || null,
+                sortBy: sortConfig.key,
+                sortOrder: sortConfig.direction,
             };
 
             if (session?.user?.role !== 'SUPER_ADMIN' && allowedNoticeTypes.length > 0) {
@@ -295,9 +366,7 @@ const DataDisplay = ({ data }) => {
             .then(res => res.json())
             .then(fetchedData => {
                 const list = Array.isArray(fetchedData) ? fetchedData : [];
-                let sortedData = [...list].sort((a, b) => 
-                    new Date(b.updatedAt) - new Date(a.updatedAt)
-                );
+                let sortedData = sortNotices(list, sortConfig.key, sortConfig.direction);
                 
                 // Client-side safety filter for restricted roles
                 if (session?.user?.role !== 'SUPER_ADMIN' && allowedNoticeTypes.length > 0) {
@@ -341,10 +410,10 @@ const DataDisplay = ({ data }) => {
                     return notice.openDate >= filterQuery.start_date && notice.closeDate <= filterQuery.end_date;
                 });
             }
-            const sortedFilterData = filteredData.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+            const sortedFilterData = sortNotices(filteredData, sortConfig.key, sortConfig.direction);
             setDetails(sortedFilterData);
         }
-    }, [page, rowsPerPage, filterQuery, initialData, session, allowedNoticeTypes]);
+    }, [page, rowsPerPage, filterQuery, initialData, session, allowedNoticeTypes, sortConfig]);
 
     const getHeadingTitle = () => {
         if (session?.user?.role === 'SUPER_ADMIN') return 'Recent Notices';
@@ -382,16 +451,15 @@ const DataDisplay = ({ data }) => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                 <Typography variant="h4" sx={{ color: '#333', fontWeight: 600 }}>
                     {getHeadingTitle()}
                 </Typography>
                 
-                <Box>
+                <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
                     <Button
                         variant="contained"
                         onClick={() => setAddModal(true)}
-                        sx={{ mr: 2 }}
                         style={{ backgroundColor: '#830001', color: 'white' }}
                     >
                         Add New Notice
@@ -407,8 +475,78 @@ const DataDisplay = ({ data }) => {
                     <TableHead>
                         <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>Notice Title</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>Updated Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>Open Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>
+                                <TableSortLabel
+                                    active={sortConfig.key === 'updatedAt'}
+                                    direction={sortConfig.key === 'updatedAt' ? sortConfig.direction : 'desc'}
+                                    onClick={() => handleRequestSort('updatedAt')}
+                                    sx={{
+                                        fontWeight: 600,
+                                        color: sortConfig.key === 'updatedAt' ? '#830001 !important' : '#333',
+                                        '& .MuiTableSortLabel-icon': {
+                                            opacity: sortConfig.key === 'updatedAt' ? 1 : 0.45,
+                                            color: sortConfig.key === 'updatedAt' ? '#830001 !important' : '#555 !important'
+                                        },
+                                        '&:hover': {
+                                            color: '#830001',
+                                            '& .MuiTableSortLabel-icon': {
+                                                opacity: 0.85,
+                                                color: '#830001 !important'
+                                            }
+                                        }
+                                    }}
+                                >
+                                    Updated Date
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>
+                                <TableSortLabel
+                                    active={sortConfig.key === 'openDate'}
+                                    direction={sortConfig.key === 'openDate' ? sortConfig.direction : 'desc'}
+                                    onClick={() => handleRequestSort('openDate')}
+                                    sx={{
+                                        fontWeight: 600,
+                                        color: sortConfig.key === 'openDate' ? '#830001 !important' : '#333',
+                                        '& .MuiTableSortLabel-icon': {
+                                            opacity: sortConfig.key === 'openDate' ? 1 : 0.45,
+                                            color: sortConfig.key === 'openDate' ? '#830001 !important' : '#555 !important'
+                                        },
+                                        '&:hover': {
+                                            color: '#830001',
+                                            '& .MuiTableSortLabel-icon': {
+                                                opacity: 0.85,
+                                                color: '#830001 !important'
+                                            }
+                                        }
+                                    }}
+                                >
+                                    Open Date
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: '#333' }}>
+                                <TableSortLabel
+                                    active={sortConfig.key === 'department'}
+                                    direction={sortConfig.key === 'department' ? sortConfig.direction : 'asc'}
+                                    onClick={() => handleRequestSort('department')}
+                                    sx={{
+                                        fontWeight: 600,
+                                        color: sortConfig.key === 'department' ? '#830001 !important' : '#333',
+                                        '& .MuiTableSortLabel-icon': {
+                                            opacity: sortConfig.key === 'department' ? 1 : 0.45,
+                                            color: sortConfig.key === 'department' ? '#830001 !important' : '#555 !important'
+                                        },
+                                        '&:hover': {
+                                            color: '#830001',
+                                            '& .MuiTableSortLabel-icon': {
+                                                opacity: 0.85,
+                                                color: '#830001 !important'
+                                            }
+                                        }
+                                    }}
+                                >
+                                    Department
+                                </TableSortLabel>
+                            </TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>Type</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>Attachments</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: '#333' }}>Actions</TableCell>
@@ -421,7 +559,7 @@ const DataDisplay = ({ data }) => {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                                     <Typography variant="body1" color="text.secondary">
                                         No notices found
                                     </Typography>
