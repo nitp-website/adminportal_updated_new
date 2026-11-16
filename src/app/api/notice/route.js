@@ -2,14 +2,21 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { administrationList, depList } from "@/lib/const";
 
-const ALLOWED_SORT_FIELDS = ['updatedAt', 'openDate', 'department'];
+const ALLOWED_SORT_FIELDS = ['updatedAt', 'openDate', 'closeDate', 'department', 'notice_type', 'type'];
 
 const buildOrderByClause = (sortBy, sortOrder, defaultField = 'openDate') => {
-  const orderField = ALLOWED_SORT_FIELDS.includes(sortBy) ? sortBy : defaultField;
+  let orderField = ALLOWED_SORT_FIELDS.includes(sortBy) ? sortBy : defaultField;
+  if (orderField === 'type') orderField = 'notice_type';
   const orderDirection = String(sortOrder || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
   if (orderField === 'department') {
     return `ORDER BY (CASE WHEN department IS NULL OR department = '' THEN 1 ELSE 0 END), department ${orderDirection}, openDate DESC`;
+  }
+  if (orderField === 'closeDate') {
+    return `ORDER BY (CASE WHEN closeDate IS NULL OR closeDate = 0 THEN 1 ELSE 0 END), closeDate ${orderDirection}, openDate DESC`;
+  }
+  if (orderField === 'notice_type') {
+    return `ORDER BY (CASE WHEN notice_type IS NULL OR notice_type = '' THEN 1 ELSE 0 END), notice_type ${orderDirection}, openDate DESC`;
   }
   return `ORDER BY ${orderField} ${orderDirection}, openDate DESC`;
 };
