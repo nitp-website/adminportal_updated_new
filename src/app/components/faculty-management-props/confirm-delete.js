@@ -131,10 +131,17 @@ export const ConfirmDelete = ({ open, handleClose, faculty }) => {
                                     {profile.designation || 'No designation specified'}
                                 </Typography>
                                 <Chip 
-                                    label={profile.is_retired ? 'Retired' : 'Active'}
-                                    color={profile.is_retired ? 'default' : 'success'}
+                                    label={profile.in_memoriam ? 'In Memoriam' : profile.is_retired ? 'Retired' : 'Active'}
+                                    color={profile.in_memoriam ? 'default' : profile.is_retired ? 'default' : 'success'}
                                     size="small"
-                                    sx={{ mt: 0.5 }}
+                                    sx={{ 
+                                        mt: 0.5,
+                                        ...(profile.in_memoriam && {
+                                            backgroundColor: '#475569',
+                                            color: '#fff',
+                                            fontWeight: 500
+                                        })
+                                    }}
                                 />
                             </Box>
                         </Box>
@@ -242,6 +249,14 @@ export const ConfirmDelete = ({ open, handleClose, faculty }) => {
                             <Box sx={{ mt: 2, p: 2, backgroundColor: '#fff3e0', borderRadius: 1 }}>
                                 <Typography variant="body2" color="text.secondary">
                                     <strong>Retirement Date:</strong> {new Date(profile.retirement_date).toLocaleDateString()}
+                                </Typography>
+                            </Box>
+                        )}
+
+                        {profile.in_memoriam && profile.service_end_date && (
+                            <Box sx={{ mt: 2, p: 2, backgroundColor: '#f1f5f9', borderRadius: 1 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                    <strong>Service Tenure:</strong> {profile.date_of_joining ? new Date(profile.date_of_joining).toLocaleDateString() : 'N/A'} – {new Date(profile.service_end_date).toLocaleDateString()}
                                 </Typography>
                             </Box>
                         )}

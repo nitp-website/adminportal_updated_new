@@ -146,7 +146,7 @@ export async function GET(request) {
         } else if (sortBy === 'role') {
           orderByClause = `ORDER BY u.role ${sortOrder}, u.name ASC`;
         } else if (sortBy === 'status') {
-          orderByClause = `ORDER BY u.is_retired ${sortOrder}, u.name ASC`;
+          orderByClause = `ORDER BY u.in_memoriam ${sortOrder}, u.is_retired ${sortOrder}, u.name ASC`;
         }
 
         results = await query(

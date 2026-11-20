@@ -42,6 +42,8 @@ export function EditFaculty({ open, faculty, onClose, onSuccess, onDelete }) {
     academic_responsibility: "",
     is_retired: "0",
     retirement_date: null,
+    in_memoriam: "0",
+    service_end_date: null,
     date_of_birth: "",
     date_of_joining: "",
   });
@@ -83,13 +85,20 @@ export function EditFaculty({ open, faculty, onClose, onSuccess, onDelete }) {
         ext_no: faculty.profile.ext_no || "",
         research_interest: faculty.profile.research_interest || "",
         academic_responsibility: faculty.profile.academic_responsibility || "",
-        is_retired: faculty.profile.is_retired ? "1" : "0",
+        is_retired: (faculty.profile.is_retired === 1 || faculty.profile.is_retired === "1" || faculty.profile.is_retired === true) ? "1" : "0",
         retirement_date: (function(rd) {
           if (!rd) return null;
           if (typeof rd === 'number') return new Date(rd).toISOString().slice(0,10);
           if (typeof rd === 'string' && rd.includes('T')) return rd.split('T')[0];
           return rd;
         })(faculty.profile.retirement_date),
+        in_memoriam: (faculty.profile.in_memoriam === 1 || faculty.profile.in_memoriam === "1" || faculty.profile.in_memoriam === true) ? "1" : "0",
+        service_end_date: (function(sed) {
+          if (!sed) return null;
+          if (typeof sed === 'number') return new Date(sed).toISOString().slice(0,10);
+          if (typeof sed === 'string' && sed.includes('T')) return sed.split('T')[0];
+          return sed;
+        })(faculty.profile.service_end_date),
         date_of_birth: (function(d) {
           if (!d) return "";
           if (typeof d === 'number') return new Date(d).toISOString().slice(0,10);
@@ -113,8 +122,12 @@ export function EditFaculty({ open, faculty, onClose, onSuccess, onDelete }) {
     try {
       const formattedData = {
         ...formData,
+        is_retired: formData.is_retired === "1" ? 1 : 0,
+        in_memoriam: formData.in_memoriam === "1" ? 1 : 0,
         retirement_date:
-          formData.is_retired === "0" ? null : formData.retirement_date,
+          formData.is_retired === "1" ? formData.retirement_date : null,
+        service_end_date:
+          formData.in_memoriam === "1" ? formData.service_end_date : null,
       };
 
       const response = await fetch("/api/update", {
@@ -472,23 +485,51 @@ export function EditFaculty({ open, faculty, onClose, onSuccess, onDelete }) {
                     fullWidth
                     select
                     required
-                    label="Is Retired"
-                    value={formData.is_retired}
+                    label="Status"
+                    value={
+                      formData.in_memoriam === "1"
+                        ? "in_memoriam"
+                        : formData.is_retired === "1"
+                        ? "retired"
+                        : "active"
+                    }
                     onChange={(e) => {
                       const val = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        is_retired: val,
-                        retirement_date:
-                          val === "1" && !prev.retirement_date
-                            ? new Date().toISOString().slice(0, 10)
-                            : prev.retirement_date,
-                      }));
+                      if (val === "in_memoriam") {
+                        setFormData((prev) => ({
+                          ...prev,
+                          in_memoriam: "1",
+                          is_retired: "0",
+                          retirement_date: null,
+                          service_end_date:
+                            prev.service_end_date ||
+                            new Date().toISOString().slice(0, 10),
+                        }));
+                      } else if (val === "retired") {
+                        setFormData((prev) => ({
+                          ...prev,
+                          in_memoriam: "0",
+                          is_retired: "1",
+                          service_end_date: null,
+                          retirement_date:
+                            prev.retirement_date ||
+                            new Date().toISOString().slice(0, 10),
+                        }));
+                      } else {
+                        setFormData((prev) => ({
+                          ...prev,
+                          in_memoriam: "0",
+                          is_retired: "0",
+                          retirement_date: null,
+                          service_end_date: null,
+                        }));
+                      }
                     }}
                     variant="outlined"
                   >
-                    <MenuItem value="0">Active</MenuItem>
-                    <MenuItem value="1">Retired</MenuItem>
+                    <MenuItem value="active">Active</MenuItem>
+                    <MenuItem value="retired">Retired</MenuItem>
+                    <MenuItem value="in_memoriam">In Memoriam</MenuItem>
                   </TextField>
                 </Grid>
                 {formData.is_retired === "1" && (
@@ -506,6 +547,27 @@ export function EditFaculty({ open, faculty, onClose, onSuccess, onDelete }) {
                       }
                       InputLabelProps={{ shrink: true }}
                       variant="outlined"
+                      required
+                    />
+                  </Grid>
+                )}
+                {formData.in_memoriam === "1" && (
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      label="Service End Date"
+                      value={formData.service_end_date || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          service_end_date: e.target.value,
+                        }))
+                      }
+                      InputLabelProps={{ shrink: true }}
+                      variant="outlined"
+                      helperText="Demise date / service completion date"
+                      required
                     />
                   </Grid>
                 )}

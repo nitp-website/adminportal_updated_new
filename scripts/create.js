@@ -401,7 +401,9 @@ await query(`CREATE TABLE IF NOT EXISTS user (
     vidwan VARCHAR(1000),
     orcid VARCHAR(1000),
     is_retired BOOLEAN DEFAULT FALSE,
-    retirement_date DATE
+    retirement_date DATE,
+    in_memoriam BOOLEAN DEFAULT FALSE,
+    service_end_date DATE
 );`).catch((e) => console.log(e));
 
 // Web Team Table

@@ -166,6 +166,9 @@ export function FacultyTable() {
           academic_responsibility: facultyRow.academic_responsibility,
           is_retired: facultyRow.is_retired,
           retirement_date: facultyRow.retirement_date,
+          in_memoriam: facultyRow.in_memoriam,
+          service_end_date: facultyRow.service_end_date,
+          date_of_joining: facultyRow.date_of_joining,
           image: facultyRow.image
         }
       }
@@ -324,7 +327,18 @@ export function FacultyTable() {
                 <TableCell>{row.academic_responsibility || 'N/A'}</TableCell>
                 <TableCell>{row.role}</TableCell>
                 <TableCell>
-                  {row.is_retired ? (
+                  {row.in_memoriam ? (
+                    <span>
+                      <span className="text-slate-700 font-semibold inline-block px-2 py-0.5 rounded bg-slate-100 text-xs">
+                        In Memoriam
+                      </span>
+                      {(row.date_of_joining || row.service_end_date) && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {row.date_of_joining ? new Date(row.date_of_joining).getFullYear() : '—'} – {row.service_end_date ? new Date(row.service_end_date).getFullYear() : '—'}
+                        </div>
+                      )}
+                    </span>
+                  ) : row.is_retired ? (
                     <span>
                       <span className="text-red-600 font-semibold">Retired</span>
                       <br />
