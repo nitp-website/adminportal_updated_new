@@ -16,5 +16,6 @@ export const PERMISSION_CONFIG = [
   { key: 'events', label: 'Events', description: 'Publish, edit, and delete institute events and event banners', color: '#d32f2f' },
   { key: 'guest-lectures', label: 'Guest Lectures', description: 'Publish, edit, and delete guest lectures, seminars, and speaker details', color: '#00897b' },
   { key: 'institute-lectures', label: 'Institute Lectures', description: 'Publish, edit, and delete institute lectures and announcements', color: '#1565c0' },
+  { key: 'department-achievements', label: 'Department Achievements', description: 'Publish, edit, and delete department achievements and awards', color: '#00796b' },
 ];
 

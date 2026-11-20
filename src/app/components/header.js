@@ -21,6 +21,7 @@ import GroupsIcon from '@mui/icons-material/Groups'
 import FolderIcon from '@mui/icons-material/Folder'
 import SchoolIcon from '@mui/icons-material/School'
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver'
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { ROLES } from '@/lib/roles'
 import { useFacultyData } from '@/context/FacultyDataContext'
 
@@ -137,7 +138,8 @@ const menuItems = {
     { text: 'Club Management', href: '/club-management', icon: <GroupsIcon /> },
     { text: 'File Management', href: '/file-management', icon: <FolderIcon /> },
     { text: 'Guest Lectures', href: '/guest-lectures', icon: <RecordVoiceOverIcon /> },
-    { text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> }
+    { text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> },
+    { text: 'Department Achievements', href: '/department-achievements', icon: <EmojiEventsIcon /> }
   ],
   [ROLES.CLUB_ADMIN]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> },
@@ -155,7 +157,8 @@ const menuItems = {
     { text: 'Notice', href: '/notice', icon: <NotificationsIcon /> },
     { text: 'Student Management', href: '/student-management', icon: <SchoolIcon /> },
     { text: 'Guest Lectures', href: '/guest-lectures', icon: <RecordVoiceOverIcon /> },
-    { text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> }
+    { text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> },
+    { text: 'Department Achievements', href: '/department-achievements', icon: <EmojiEventsIcon /> }
   ],
   [ROLES.FACULTY]: [
     { text: 'Profile', href: '/', icon: <AccountCircleIcon /> }
@@ -236,7 +239,7 @@ export default function Header() {
     const specialPerms = (session?.user?.specialPermissions || []).map((p) => String(p).toLowerCase())
 
     // If user has special notice permissions and doesn't already have 'Notice' in their menu
-    const hasNoticePerms = specialPerms.some((p) => !['events', 'guest-lectures', 'institute-lectures'].includes(p))
+    const hasNoticePerms = specialPerms.some((p) => !['events', 'guest-lectures', 'institute-lectures', 'department-achievements'].includes(p))
     if (hasNoticePerms && !items.some((item) => item.href === '/notice')) {
       items.push({ text: 'Notice', href: '/notice', icon: <NotificationsIcon /> })
     }
@@ -254,6 +257,11 @@ export default function Header() {
     // If user has 'institute-lectures' permission and doesn't already have 'Institute Lectures' in their menu
     if (specialPerms.includes('institute-lectures') && !items.some((item) => item.href === '/institute-lectures')) {
       items.push({ text: 'Institute Lectures', href: '/institute-lectures', icon: <RecordVoiceOverIcon /> })
+    }
+
+    // If user has 'department-achievements' permission and doesn't already have 'Department Achievements' in their menu
+    if (specialPerms.includes('department-achievements') && !items.some((item) => item.href === '/department-achievements')) {
+      items.push({ text: 'Department Achievements', href: '/department-achievements', icon: <EmojiEventsIcon /> })
     }
 
     return items

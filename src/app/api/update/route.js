@@ -466,6 +466,111 @@ export async function PUT(request) {
       return NextResponse.json(eventResult);
     }
 
+    if (type === 'department_achievement' || type === 'achievement') {
+      if (!params.data?.id) {
+        return NextResponse.json(
+          { message: 'Achievement ID is required for update' },
+          { status: 400 }
+        );
+      }
+
+      const existingRows = await query(
+        `SELECT * FROM department_achievements WHERE id = ? LIMIT 1`,
+        [params.data.id]
+      );
+
+      if (!existingRows || existingRows.length === 0) {
+        return NextResponse.json(
+          { message: 'Department achievement not found' },
+          { status: 404 }
+        );
+      }
+
+      const existing = existingRows[0];
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const achievementDept = (params.data.department || existing.department)?.trim().toLowerCase();
+      const userDept = session.user.department?.trim().toLowerCase();
+
+      const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+      const isDeptAdminForDept = session.user.role === 'DEPT_ADMIN' && (!userDept || userDept === achievementDept);
+      const hasSpecialPerm = userSpecialPerms.includes('department-achievements') || userSpecialPerms.includes('achievements');
+
+      const canUpdateAchievement = isSuperAdmin || isDeptAdminForDept || hasSpecialPerm;
+
+      if (!canUpdateAchievement) {
+        return NextResponse.json(
+          { message: 'Not authorized to update department achievements' },
+          { status: 403 }
+        );
+      }
+
+      const updatedTitle = params.data.title !== undefined ? params.data.title.trim() : existing.title;
+      const updatedDesc = params.data.description !== undefined ? params.data.description : existing.description;
+      const updatedCategory = params.data.category !== undefined ? params.data.category : existing.category;
+      const updatedAchievedBy = params.data.achieved_by !== undefined ? params.data.achieved_by : existing.achieved_by;
+      const updatedRecipientType = params.data.recipient_type !== undefined ? params.data.recipient_type : existing.recipient_type;
+      let updatedDate = existing.achievement_date;
+      if (params.data.achievement_date !== undefined) {
+        const rawDate = params.data.achievement_date;
+        if (!rawDate) {
+          updatedDate = null;
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(String(rawDate).trim())) {
+          updatedDate = String(rawDate).trim();
+        } else {
+          try {
+            const num = parseInt(rawDate, 10);
+            const d = !isNaN(num) && String(num).length >= 10 ? new Date(num) : new Date(rawDate);
+            updatedDate = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(rawDate);
+          } catch (e) {
+            updatedDate = String(rawDate);
+          }
+        }
+      }
+      const updatedBanner = params.data.banner_image !== undefined ? params.data.banner_image : existing.banner_image;
+      const updatedAttachments = params.data.attachments !== undefined ? JSON.stringify(params.data.attachments || []) : existing.attachments;
+      const updatedLink = params.data.external_link !== undefined ? params.data.external_link : existing.external_link;
+      const updatedDept = achievementDept || existing.department;
+
+      const result = await query(
+        `UPDATE department_achievements SET
+          department = ?,
+          title = ?,
+          description = ?,
+          category = ?,
+          achieved_by = ?,
+          recipient_type = ?,
+          achievement_date = ?,
+          banner_image = ?,
+          attachments = ?,
+          external_link = ?,
+          updatedBy = ?,
+          updatedAt = ?
+         WHERE id = ?`,
+        [
+          updatedDept,
+          updatedTitle,
+          updatedDesc,
+          updatedCategory,
+          updatedAchievedBy,
+          updatedRecipientType,
+          updatedDate,
+          updatedBanner,
+          updatedAttachments,
+          updatedLink,
+          session.user.email,
+          Date.now(),
+          params.data.id
+        ]
+      );
+
+      return NextResponse.json({ success: true, message: 'Achievement updated successfully', result });
+    }
+
     // Super Admin only access
     if (session.user.role === "SUPER_ADMIN") {
       switch (type) {
@@ -1410,4 +1515,8 @@ export async function PUT(request) {
     console.error("API Error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
+}
+
+export async function POST(request) {
+  return PUT(request);
 }
