@@ -244,6 +244,108 @@ export async function POST(request) {
       return NextResponse.json(eventResult);
     }
 
+    if (type === 'department_achievement' || type === 'achievement' || type === 'department_achievements' || type === 'achievements') {
+      const achievementIds = Array.isArray(params.ids) ? params.ids : (params.id ? [params.id] : []);
+
+      if (achievementIds.length === 0) {
+        return NextResponse.json(
+          { message: 'Achievement ID(s) not provided' },
+          { status: 400 }
+        );
+      }
+
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const userDept = session.user.department?.trim().toLowerCase();
+      const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+      const hasSpecialPerm = userSpecialPerms.includes('department-achievements') || userSpecialPerms.includes('achievements');
+
+      const deleteAchievementById = async (achievementId) => {
+        const rows = await query(
+          `SELECT id, department, banner_image, attachments FROM department_achievements WHERE id = ? LIMIT 1`,
+          [achievementId]
+        );
+
+        if (!rows || rows.length === 0) {
+          return { id: achievementId, status: 'not_found' };
+        }
+
+        const item = rows[0];
+        const achievementDept = item.department?.trim().toLowerCase();
+        const isDeptAdminForDept = session.user.role === 'DEPT_ADMIN' && (!userDept || userDept === achievementDept);
+
+        const canDelete = isSuperAdmin || isDeptAdminForDept || hasSpecialPerm;
+
+        if (!canDelete) {
+          return { id: achievementId, status: 'unauthorized' };
+        }
+
+        // Delete banner image from S3 if present
+        if (item.banner_image && typeof item.banner_image === 'string' && item.banner_image.includes('.amazonaws.com')) {
+          try {
+            const key = extractS3KeyFromUrl(item.banner_image);
+            if (key) {
+              await deleteS3File(key);
+            }
+          } catch (err) {
+            console.error('[Achievement Delete] Error deleting banner image:', err);
+          }
+        }
+
+        // Delete attachments from S3 if present
+        if (item.attachments) {
+          try {
+            const attachments = typeof item.attachments === 'string' ? JSON.parse(item.attachments) : item.attachments;
+            if (Array.isArray(attachments)) {
+              for (const att of attachments) {
+                let keyToDelete = att.key;
+                if (!keyToDelete && att.url && typeof att.url === 'string' && att.url.includes('.amazonaws.com')) {
+                  keyToDelete = extractS3KeyFromUrl(att.url);
+                }
+                if (keyToDelete) {
+                  await deleteS3File(keyToDelete);
+                }
+              }
+            }
+          } catch (err) {
+            console.error('[Achievement Delete] Error deleting attachments:', err);
+          }
+        }
+
+        const result = await query(
+          `DELETE FROM department_achievements WHERE id = ?`,
+          [achievementId]
+        );
+
+        return { id: achievementId, status: 'deleted', result };
+      };
+
+      const results = await Promise.all(achievementIds.map(id => deleteAchievementById(id)));
+
+      if (!Array.isArray(params.ids)) {
+        const single = results[0];
+        if (single.status === 'not_found') {
+          return NextResponse.json({ message: 'Achievement not found' }, { status: 404 });
+        }
+        if (single.status === 'unauthorized') {
+          return NextResponse.json({ message: 'Not authorized to delete this achievement' }, { status: 403 });
+        }
+        return NextResponse.json(single.result);
+      }
+
+      const deletedCount = results.filter(r => r.status === 'deleted').length;
+      return NextResponse.json({
+        success: true,
+        message: `Successfully deleted ${deletedCount} of ${achievementIds.length} achievement(s)`,
+        deletedCount,
+        results
+      });
+    }
+
     // Super Admin only operations
     if (session.user.role === 'SUPER_ADMIN') {
       switch (type) {

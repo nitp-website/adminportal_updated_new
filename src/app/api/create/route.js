@@ -320,6 +320,95 @@ export async function POST(request) {
       return NextResponse.json(eventResult);
     }
 
+    if (type === 'department_achievement' || type === 'achievement') {
+      const dbPerms = await getFacultySpecialPermissions(session.user.email);
+      const userSpecialPerms = Array.from(new Set([
+        ...(session.user.specialPermissions || []),
+        ...dbPerms
+      ])).map(p => String(p).toLowerCase());
+
+      const achievementDept = params.data?.department?.trim().toLowerCase();
+      const userDept = session.user.department?.trim().toLowerCase();
+
+      const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+      const isDeptAdminForDept = session.user.role === 'DEPT_ADMIN' && (!userDept || userDept === achievementDept);
+      const hasSpecialPerm = userSpecialPerms.includes('department-achievements') || userSpecialPerms.includes('achievements');
+
+      const canCreateAchievement = isSuperAdmin || isDeptAdminForDept || hasSpecialPerm;
+
+      if (!canCreateAchievement) {
+        return NextResponse.json(
+          { message: 'Not authorized to create department achievements' },
+          { status: 403 }
+        );
+      }
+
+      if (!params.data?.title?.trim()) {
+        return NextResponse.json(
+          { message: 'Title is required' },
+          { status: 400 }
+        );
+      }
+
+      if (!params.data?.department?.trim()) {
+        return NextResponse.json(
+          { message: 'Department is required' },
+          { status: 400 }
+        );
+      }
+
+      const id = params.data.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const now = Date.now();
+
+      let formattedDate = null;
+      if (params.data?.achievement_date) {
+        const rawDate = String(params.data.achievement_date).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+          formattedDate = rawDate;
+        } else {
+          try {
+            const num = parseInt(rawDate, 10);
+            const d = !isNaN(num) && String(num).length >= 10 ? new Date(num) : new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              formattedDate = d.toISOString().split('T')[0];
+            } else {
+              formattedDate = rawDate;
+            }
+          } catch (e) {
+            formattedDate = rawDate;
+          }
+        }
+      }
+
+      const result = await query(
+        `INSERT INTO department_achievements (
+          id, department, title, description, category,
+          achieved_by, recipient_type, achievement_date,
+          banner_image, attachments, external_link,
+          email, updatedBy, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          achievementDept,
+          params.data.title.trim(),
+          params.data.description || null,
+          params.data.category || 'Departmental Milestone',
+          params.data.achieved_by || null,
+          params.data.recipient_type || 'Student',
+          formattedDate,
+          params.data.banner_image || null,
+          JSON.stringify(params.data.attachments || []),
+          params.data.external_link || null,
+          session.user.email,
+          session.user.email,
+          now,
+          now
+        ]
+      );
+
+      return NextResponse.json({ success: true, id, result });
+    }
+
     // Super Admin only access
     if (session.user.role === 'SUPER_ADMIN') {
       console.log("Inside user management")
