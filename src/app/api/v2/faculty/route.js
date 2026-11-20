@@ -61,7 +61,7 @@ const cardCountSubqueries = `
 const cardUserFields = `
   u.id, u.name, u.image, u.designation, u.department,
   u.email, u.ext_no, u.research_interest, u.academic_responsibility,
-  u.gender, u.is_retired
+  u.gender, u.is_retired, u.retirement_date, u.in_memoriam, u.service_end_date, u.date_of_joining
 `
 
 export async function GET(request) {

@@ -686,11 +686,20 @@ export async function PUT(request) {
                 retirement_date,
                 date_of_birth,
                 date_of_joining,
+                in_memoriam,
+                service_end_date,
               } = params;
 
+            // Strict boolean/integer normalization
+            const finalIsRetired = (is_retired === 1 || is_retired === '1' || is_retired === true) ? 1 : 0;
+            const finalInMemoriam = (in_memoriam === 1 || in_memoriam === '1' || in_memoriam === true) ? 1 : 0;
+
             // Format dates for MySQL or set to NULL
-            const formattedRetirementDate = retirement_date
+            const formattedRetirementDate = (finalIsRetired && retirement_date)
               ? new Date(retirement_date).toISOString().slice(0, 10)
+              : null;
+            const formattedServiceEndDate = (finalInMemoriam && service_end_date)
+              ? new Date(service_end_date).toISOString().slice(0, 10)
               : null;
             const formattedDOB = date_of_birth
               ? new Date(date_of_birth).toISOString().slice(0, 10)
@@ -713,7 +722,9 @@ export async function PUT(request) {
                 is_retired = ?,
                 retirement_date = ?,
                 date_of_birth = ?,
-                date_of_joining = ?
+                date_of_joining = ?,
+                in_memoriam = ?,
+                service_end_date = ?
               WHERE email = ?`,
               [
                 name,
@@ -725,10 +736,12 @@ export async function PUT(request) {
                 ext_no,
                 research_interest,
                 academic_responsibility || null,
-                is_retired,
+                finalIsRetired,
                 formattedRetirementDate,
                 formattedDOB,
                 formattedDOJ,
+                finalInMemoriam,
+                formattedServiceEndDate,
                 email
               ]
             )

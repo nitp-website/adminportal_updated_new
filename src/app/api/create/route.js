@@ -414,10 +414,14 @@ export async function POST(request) {
       console.log("Inside user management")
       switch (type) {
         case 'user':
+          const finalIsRetired = (params.is_retired === 1 || params.is_retired === '1' || params.is_retired === true) ? 1 : 0;
+          const finalInMemoriam = (params.in_memoriam === 1 || params.in_memoriam === '1' || params.in_memoriam === true) ? 1 : 0;
           const formattedDOB = params.date_of_birth ? new Date(params.date_of_birth).toISOString().slice(0, 10) : null;
           const formattedDOJ = params.date_of_joining ? new Date(params.date_of_joining).toISOString().slice(0, 10) : null;
+          const formattedRetirementDate = (finalIsRetired && params.retirement_date) ? new Date(params.retirement_date).toISOString().slice(0, 10) : null;
+          const formattedServiceEndDate = (finalInMemoriam && params.service_end_date) ? new Date(params.service_end_date).toISOString().slice(0, 10) : null;
           const userResult = await query(
-            `INSERT INTO user(name, email, role, category, gender, department, designation, ext_no, research_interest, academic_responsibility, is_retired, retirement_date, date_of_birth, date_of_joining) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO user(name, email, role, category, gender, department, designation, ext_no, research_interest, academic_responsibility, is_retired, retirement_date, date_of_birth, date_of_joining, in_memoriam, service_end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               params.name,
               params.email,
@@ -429,10 +433,12 @@ export async function POST(request) {
               params.ext_no,
               params.research_interest,
               params.academic_responsibility || null,
-              params.is_retired || false,
-              params.retirement_date || null,
+              finalIsRetired,
+              formattedRetirementDate,
               formattedDOB,
-              formattedDOJ
+              formattedDOJ,
+              finalInMemoriam,
+              formattedServiceEndDate
             ]
           )
           await invalidateProfileIfNeeded(type, params);
