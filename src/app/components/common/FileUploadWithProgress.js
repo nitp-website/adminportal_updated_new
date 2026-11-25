@@ -13,7 +13,7 @@ const FileUploadWithProgress = ({
     onUploadError,
     fileType = 'general',
     acceptedTypes = '*/*',
-    maxSizeMB = 10,
+    maxSizeMB = 20,
     children,
     disabled = false
 }) => {

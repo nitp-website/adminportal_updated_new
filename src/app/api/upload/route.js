@@ -39,7 +39,7 @@ export async function POST(request) {
     }
 
     // File size validation
-    const maxSize = fileType === 'profile' ? 1024 * 1024 : 10 * 1024 * 1024; // 1MB for profile, 10MB for others
+    const maxSize = fileType === 'profile' ? 1024 * 1024 : 20 * 1024 * 1024; // 1MB for profile, 20MB for others
     if (file.size > maxSize) {
       const maxSizeMB = maxSize / (1024 * 1024);
       console.log(`Upload attempt - File too large: ${file.size} bytes (max: ${maxSize} bytes)`);
