@@ -29,8 +29,14 @@ export const AddAttachments = ({ attachments, setAttachments, limit, showDirecto
         setAttachments(values)
     }
     function handleChangeFile(i, event) {
+        const file = event.target.files[0]
+        if (file && file.size > 20 * 1024 * 1024) {
+            alert('File size must be less than 20MB')
+            event.target.value = ''
+            return
+        }
         const values = [...attachments]
-        values[i].url = event.target.files[0]
+        values[i].url = file
         values[i].value = event.target.value
         setAttachments(values)
     }
@@ -211,7 +217,8 @@ export const handleNewAttachments = async (new_attach, directoryId = null, onPro
                     });
 
                     if (!response.ok) {
-                        throw new Error('File upload failed');
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.message || `File upload failed with status ${response.status}`);
                     }
 
                     let data = await response.json();
@@ -233,9 +240,7 @@ export const handleNewAttachments = async (new_attach, directoryId = null, onPro
                 }
             } catch (error) {
                 console.error('File upload error:', error);
-                new_attach[i].url = ''; // Set it to empty if there was an error
-                new_attach[i].key = ''; // Empty key as well
-                new_attach[i].fileMetadata = null;
+                throw error;
             }
         } else {
             console.log('NOT A FILE, It is a link');
