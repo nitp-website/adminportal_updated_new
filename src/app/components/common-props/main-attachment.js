@@ -24,9 +24,15 @@ export const MainAttachment = ({
     }
 
     const handleChangeFile = (e) => {
+        const file = e.target.files[0]
+        if (file && file.size > 20 * 1024 * 1024) {
+            alert('File size must be less than 20MB')
+            e.target.value = ''
+            return
+        }
         setMainAttachment({
             ...mainAttachment,
-            url: e.target.files[0],
+            url: file,
             value: e.target.value,
         })
     }
@@ -98,7 +104,8 @@ export const uploadMainAttachment = async (mainAttachment, onProgress = null) =>
             });
 
             if (!response.ok) {
-                throw new Error('File upload failed');
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || `File upload failed with status ${response.status}`);
             }
 
             let data = await response.json();
@@ -109,7 +116,7 @@ export const uploadMainAttachment = async (mainAttachment, onProgress = null) =>
         }
     } catch (error) {
         console.error('Main attachment upload error:', error);
-        return { url: '', key: '' };
+        throw error;
     }
 }
 
