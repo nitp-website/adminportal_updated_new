@@ -119,8 +119,8 @@ export const EditAchievementForm = ({ open, handleClose, data, refresh }) => {
     const handleBannerChange = (e) => {
         const file = e.target.files[0]
         if (file) {
-            if (file.size > 10 * 1024 * 1024) {
-                setError('Banner image size must be less than 10MB')
+            if (file.size > 20 * 1024 * 1024) {
+                setError('Banner image size must be less than 20MB')
                 return
             }
             setBannerFile(file)

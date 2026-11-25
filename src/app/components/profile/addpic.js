@@ -16,8 +16,8 @@ export const AddPic = ({
         const file = event.target.files[0]
         if (!file) return
 
-        // File size validation (1MB for images, 10MB for others)
-        const maxSize = attachmentTypes.includes('image') ? 1024 * 1024 : 10 * 1024 * 1024
+        // File size validation (1MB for images, 20MB for others)
+        const maxSize = attachmentTypes.includes('image') ? 1024 * 1024 : 20 * 1024 * 1024
         if (file.size > maxSize) {
             const maxSizeMB = maxSize / (1024 * 1024)
             const errorMsg = `File size must be less than ${maxSizeMB}MB`
